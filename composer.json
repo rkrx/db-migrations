@@ -1,6 +1,6 @@
 {
-	"name": "rkr/php-simple-router",
-	"description": "A simple wildcard matcher",
+	"name": "rkr/php-db-migrations",
+	"description": "Not yet powerful library to execute db-migration files",
 	"homepage": "https://github.com/rkrx/db-migrations",
 	"license": "MIT",
 	"type": "library",
