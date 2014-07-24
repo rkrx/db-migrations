@@ -70,6 +70,9 @@ class PdoDBAdapter implements DBAdapter {
 	public function exec($query, array $args = array()) {
 		echo "{$query}\n\n\n";
 
+		$this->db->exec("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;");
+		$this->db->exec("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;");
+
 		$stmt = $this->db->prepare($query);
 		foreach($args as $key => $value) {
 			$key = ltrim($key, ':');
@@ -77,6 +80,10 @@ class PdoDBAdapter implements DBAdapter {
 		}
 		$stmt->execute();
 		$stmt->closeCursor();
+
+		$this->db->exec("/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;");
+		$this->db->exec("/*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;");
+
 		return $this;
 	}
 }
