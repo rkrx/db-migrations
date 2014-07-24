@@ -1,4 +1,13 @@
 {
+	"name": "rkr/php-simple-router",
+	"description": "A simple wildcard matcher",
+	"homepage": "https://github.com/rkrx/db-migrations",
+	"license": "MIT",
+	"type": "library",
+	"authors": [{
+		"name": "Ron Kirschler",
+		"email": "ron.kirschler@gmail.com"
+	}],
 	"minimum-stability": "dev",
 	"prefer-stable": true,
 	"require": {
