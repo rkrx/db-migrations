@@ -17,12 +17,19 @@ class PdoDBAdapter implements DBAdapter {
 	private $statements = array();
 
 	/**
-	 * @param PDO $db
+	 * @var string
 	 */
-	public function __construct(PDO $db) {
+	private $tableName;
+
+	/**
+	 * @param PDO $db
+	 * @param string $tableName
+	 */
+	public function __construct(PDO $db, $tableName='migrations') {
 		$this->db = $db;
-		$this->statements['has'] = $this->db->prepare('SELECT COUNT(*) FROM migrations WHERE entry=:entry;');
-		$this->statements['add'] = $this->db->prepare('INSERT IGNORE INTO migrations SET entry=:entry;');
+		$this->tableName = $tableName;
+		$this->statements['has'] = $this->db->prepare("SELECT COUNT(*) FROM {$tableName} WHERE entry=:entry;");
+		$this->statements['add'] = $this->db->prepare("INSERT IGNORE INTO {$tableName} SET entry=:entry;");
 	}
 
 	/**
@@ -30,10 +37,10 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	public function createMigrationsStore() {
 		$this->db->exec("
-			CREATE TABLE IF NOT EXISTS migrations (
-				`entry` VARCHAR(255) NOT NULL DEFAULT '' COLLATE 'utf8_general_ci',
+			CREATE TABLE IF NOT EXISTS {$this->tableName} (
+				`entry` VARCHAR(255) NOT NULL DEFAULT '' COLLATE 'latin1_bin',
 				PRIMARY KEY (`entry`)
-			) COLLATE='latin1_bin' ENGINE=MyISAM;
+			) COLLATE='latin1_bin' ENGINE=InnoDB;
 		");
 	}
 
