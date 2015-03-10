@@ -2,9 +2,12 @@
 namespace Kir\DB\Migrations\DBAdapters;
 
 use Kir\DB\Migrations\ExecResult;
+use Kir\DB\Migrations\QueryResult;
 use PDO;
 use PDOStatement;
 use Kir\DB\Migrations\DBAdapter;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class PdoDBAdapter implements DBAdapter {
 	/** @var PDO */
@@ -13,16 +16,23 @@ class PdoDBAdapter implements DBAdapter {
 	private $statements = array();
 	/** @var string */
 	private $tableName;
+	/** @var LoggerInterface */
+	private $logger;
 
 	/**
 	 * @param PDO $db
 	 * @param string $tableName
+	 * @param LoggerInterface $logger
 	 */
-	public function __construct(PDO $db, $tableName='migrations') {
+	public function __construct(PDO $db, $tableName='migrations', LoggerInterface $logger = null) {
 		$this->db = $db;
 		$this->tableName = $tableName;
 		$this->statements['has'] = $this->db->prepare("SELECT COUNT(*) FROM {$tableName} WHERE entry=:entry;");
 		$this->statements['add'] = $this->db->prepare("INSERT IGNORE INTO {$tableName} SET entry=:entry;");
+		if($logger === null) {
+			$logger = new NullLogger();
+		}
+		$this->logger = $logger;
 	}
 
 	/**
@@ -65,10 +75,30 @@ class PdoDBAdapter implements DBAdapter {
 	/**
 	 * @param string $query
 	 * @param array $args
+	 * @return QueryResult
+	 */
+	public function query($query, array $args = array()) {
+		$this->logger->debug("\n{$query}");
+
+		$stmt = $this->db->prepare($query);
+		foreach($args as $key => $value) {
+			$key = ltrim($key, ':');
+			$stmt->bindValue($key, $value);
+		}
+		$stmt->execute();
+		$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$stmt->closeCursor();
+
+		return new QueryResult($data);
+	}
+
+	/**
+	 * @param string $query
+	 * @param array $args
 	 * @return ExecResult
 	 */
 	public function exec($query, array $args = array()) {
-		echo "\n{$query}\n\n";
+		$this->logger->debug("\n{$query}");
 
 		$this->db->exec("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;");
 		$this->db->exec("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;");
