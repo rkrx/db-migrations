@@ -59,6 +59,9 @@ class MigrationManager {
 		$rollback = array();
 		foreach($statements as $statement) {
 			try {
+				if(array_key_exists('down', $statement)) {
+					$rollback[] = $statement['down'];
+				}
 				if(array_key_exists('up', $statement)) {
 					$this->runQuery($statement['up']);
 				}
@@ -66,12 +69,12 @@ class MigrationManager {
 				printf("FAILURE: %s\n", $e->getMessage());
 				$rollback = array_reverse($rollback);
 				foreach($rollback as $rollbackStmt) {
-					$this->runQuery($rollbackStmt);
+					try {
+						$this->runQuery($rollbackStmt);
+					} catch(\Exception $e) {
+					}
 				}
 				throw $e;
-			}
-			if(array_key_exists('down', $statement)) {
-				$rollback[] = $statement['down'];
 			}
 		}
 	}
