@@ -22,7 +22,7 @@ interface DBAdapter {
 	/**
 	 * @param string $query
 	 * @param array $args
-	 * @return $this
+	 * @return ExecResult
 	 */
 	public function exec($query, array $args = array());
 }

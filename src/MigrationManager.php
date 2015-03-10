@@ -6,14 +6,9 @@ use Exception;
 use Psr\Log\LoggerInterface;
 
 class MigrationManager {
-	/**
-	 * @var DBAdapter
-	 */
+	/** @var DBAdapter */
 	private $db;
-
-	/**
-	 * @var LoggerInterface
-	 */
+	/** @var LoggerInterface */
 	private $logger;
 
 	/**

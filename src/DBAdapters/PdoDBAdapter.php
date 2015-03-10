@@ -1,24 +1,17 @@
 <?php
 namespace Kir\DB\Migrations\DBAdapters;
 
+use Kir\DB\Migrations\ExecResult;
 use PDO;
 use PDOStatement;
 use Kir\DB\Migrations\DBAdapter;
 
 class PdoDBAdapter implements DBAdapter {
-	/**
-	 * @var PDO
-	 */
+	/** @var PDO */
 	private $db = null;
-
-	/**
-	 * @var PDOStatement[]
-	 */
+	/** @var PDOStatement[] */
 	private $statements = array();
-
-	/**
-	 * @var string
-	 */
+	/** @var string */
 	private $tableName;
 
 	/**
@@ -72,10 +65,10 @@ class PdoDBAdapter implements DBAdapter {
 	/**
 	 * @param string $query
 	 * @param array $args
-	 * @return $this
+	 * @return ExecResult
 	 */
 	public function exec($query, array $args = array()) {
-		echo "{$query}\n\n\n";
+		echo "\n{$query}\n\n";
 
 		$this->db->exec("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;");
 		$this->db->exec("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;");
@@ -88,9 +81,13 @@ class PdoDBAdapter implements DBAdapter {
 		$stmt->execute();
 		$stmt->closeCursor();
 
+		$lastInsertId = $this->db->lastInsertId();
+		$rowCount = $stmt->rowCount();
+		$result = new ExecResult($lastInsertId, $rowCount);
+
 		$this->db->exec("/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;");
 		$this->db->exec("/*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;");
 
-		return $this;
+		return $result;
 	}
 }
