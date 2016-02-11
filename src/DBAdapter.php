@@ -1,6 +1,8 @@
 <?php
 namespace Kir\DB\Migrations;
 
+use Kir\DB\Migrations\DBAdapters\TableDef;
+
 interface DBAdapter {
 	/**
 	 * @return $this
@@ -20,9 +22,15 @@ interface DBAdapter {
 	public function addEntry($entry);
 
 	/**
+	 * @param string $tableName
+	 * @return TableDef
+	 */
+	public function table($tableName);
+
+	/**
 	 * @param string $query
 	 * @param array $args
-	 * @return ExecResult
+	 * @return QueryResult
 	 */
 	public function query($query, array $args = array());
 

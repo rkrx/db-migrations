@@ -3,6 +3,7 @@ namespace Kir\DB\Migrations\DBAdapters;
 
 use Kir\DB\Migrations\ExecResult;
 use Kir\DB\Migrations\QueryResult;
+use Kir\DB\Migrations\DBAdapters\TableDef;
 use PDO;
 use PDOStatement;
 use Kir\DB\Migrations\DBAdapter;
@@ -70,6 +71,14 @@ class PdoDBAdapter implements DBAdapter {
 		$stmt->execute();
 		$stmt->closeCursor();
 		return $this;
+	}
+
+	/**
+	 * @param string $tableName
+	 * @return TableDef
+	 */
+	public function table($tableName) {
+		return new TableDef($this, $tableName);
 	}
 
 	/**
