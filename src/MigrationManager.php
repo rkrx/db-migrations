@@ -45,6 +45,8 @@ class MigrationManager {
 				}
 			}
 		}
+
+		$this->logger->info("Migration done.");
 	}
 
 	/**
