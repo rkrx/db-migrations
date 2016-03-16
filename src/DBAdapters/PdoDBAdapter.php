@@ -2,8 +2,8 @@
 namespace Kir\DB\Migrations\DBAdapters;
 
 use Kir\DB\Migrations\ExecResult;
+use Kir\DB\Migrations\Helpers\Whitespace;
 use Kir\DB\Migrations\QueryResult;
-use Kir\DB\Migrations\DBAdapters\TableDef;
 use PDO;
 use PDOStatement;
 use Kir\DB\Migrations\DBAdapter;
@@ -19,6 +19,8 @@ class PdoDBAdapter implements DBAdapter {
 	private $tableName;
 	/** @var LoggerInterface */
 	private $logger;
+	/** @var Whitespace */
+	private $whitespace = null;
 
 	/**
 	 * @param PDO $db
@@ -28,6 +30,7 @@ class PdoDBAdapter implements DBAdapter {
 	public function __construct(PDO $db, $tableName='migrations', LoggerInterface $logger = null) {
 		$this->db = $db;
 		$this->tableName = $tableName;
+		$this->whitespace = new Whitespace();
 		$this->statements['has'] = $this->db->prepare("SELECT COUNT(*) FROM {$tableName} WHERE entry=:entry;");
 		$this->statements['add'] = $this->db->prepare("INSERT IGNORE INTO {$tableName} SET entry=:entry;");
 		if($logger === null) {
@@ -87,7 +90,8 @@ class PdoDBAdapter implements DBAdapter {
 	 * @return QueryResult
 	 */
 	public function query($query, array $args = array()) {
-		$this->logger->debug("\n{$query}");
+		$query = $this->whitespace->stripMargin($query);
+		$this->logger->info("\n{$query}");
 
 		$stmt = $this->db->prepare($query);
 		foreach($args as $key => $value) {
@@ -107,7 +111,8 @@ class PdoDBAdapter implements DBAdapter {
 	 * @return ExecResult
 	 */
 	public function exec($query, array $args = array()) {
-		$this->logger->debug("\n{$query}");
+		$query = $this->whitespace->stripMargin($query);
+		$this->logger->info("\n{$query}");
 
 		$this->db->exec("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;");
 		$this->db->exec("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;");
