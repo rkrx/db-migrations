@@ -5,11 +5,6 @@ use Kir\DB\Migrations\DBAdapters\TableDef;
 
 interface DBAdapter {
 	/**
-	 * @return $this
-	 */
-	public function createMigrationsStore();
-
-	/**
 	 * @param string $entry
 	 * @return string
 	 */

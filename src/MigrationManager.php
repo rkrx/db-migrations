@@ -29,7 +29,6 @@ class MigrationManager {
 	public function migrate() {
 		$this->logger->info("Starting migration");
 
-		$this->db->createMigrationsStore();
 		$files = scandir($this->migrationScriptPath);
 		sort($files);
 
@@ -37,10 +36,14 @@ class MigrationManager {
 			$path = $this->concatPaths($this->migrationScriptPath, $file);
 			if(is_file($path)) {
 				$entry = $this->getEntry($path);
-				if(!$this->db->hasEntry($entry)) {
+				$shortEntry = $entry;
+				if(preg_match('/^([\\d\\-]+).*(\\.php)$/', $entry, $matches)) {
+					$shortEntry = sprintf('%s%s', $matches[1], $matches[2]);
+				}
+				if(!$this->db->hasEntry($shortEntry)) {
 					$this->logger->info("Try to run upgrade file {$file}");
 					$this->up($file);
-					$this->db->addEntry($entry);
+					$this->db->addEntry($shortEntry);
 					$this->logger->info("Done.");
 				}
 			}
@@ -110,8 +113,8 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param callable $statement
-	 * @throws \Exception
+	 * @param Closure $statement
+	 * @throws Exception
 	 */
 	private function runQuery(Closure $statement) {
 		if(!is_callable($statement)) {

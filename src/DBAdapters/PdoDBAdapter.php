@@ -30,25 +30,14 @@ class PdoDBAdapter implements DBAdapter {
 	public function __construct(PDO $db, $tableName='migrations', LoggerInterface $logger = null) {
 		$this->db = $db;
 		$this->tableName = $tableName;
+		$this->createMigrationsStore();
 		$this->whitespace = new Whitespace();
 		$this->statements['has'] = $this->db->prepare("SELECT COUNT(*) FROM {$tableName} WHERE entry=:entry;");
-		$this->statements['add'] = $this->db->prepare("INSERT IGNORE INTO {$tableName} SET entry=:entry;");
+		$this->statements['add'] = $this->db->prepare("INSERT INTO {$tableName} (entry) VALUES (:entry);");
 		if($logger === null) {
 			$logger = new NullLogger();
 		}
 		$this->logger = $logger;
-	}
-
-	/**
-	 * @return $this
-	 */
-	public function createMigrationsStore() {
-		$this->db->exec("
-			CREATE TABLE IF NOT EXISTS {$this->tableName} (
-				`entry` VARCHAR(255) NOT NULL DEFAULT '' COLLATE 'latin1_bin',
-				PRIMARY KEY (`entry`)
-			) COLLATE='latin1_bin' ENGINE=InnoDB;
-		");
 	}
 
 	/**
@@ -69,10 +58,12 @@ class PdoDBAdapter implements DBAdapter {
 	 * @return $this
 	 */
 	public function addEntry($entry) {
-		$stmt = $this->statements['add'];
-		$stmt->bindValue('entry', $entry);
-		$stmt->execute();
-		$stmt->closeCursor();
+		if(!$this->hasEntry($entry)) {
+			$stmt = $this->statements['add'];
+			$stmt->bindValue('entry', $entry);
+			$stmt->execute();
+			$stmt->closeCursor();
+		}
 		return $this;
 	}
 
@@ -133,5 +124,29 @@ class PdoDBAdapter implements DBAdapter {
 		$this->db->exec("/*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;");
 
 		return $result;
+	}
+
+	/**
+	 * @return $this
+	 */
+	private function createMigrationsStore() {
+		$driverName = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+		switch(strtolower($driverName)) {
+			case 'mysql':
+				$this->db->exec("
+					CREATE TABLE IF NOT EXISTS {$this->tableName} (
+						`entry` VARCHAR(255) NOT NULL DEFAULT '' COLLATE 'latin1_bin',
+						PRIMARY KEY (`entry`)
+					) COLLATE='latin1_bin' ENGINE=InnoDB;
+				");
+				break;
+			default:
+				$this->db->exec("
+					CREATE TABLE IF NOT EXISTS {$this->tableName} (
+						`entry` VARCHAR(255) NOT NULL DEFAULT '',
+						PRIMARY KEY (`entry`)
+					);
+				");
+		}
 	}
 }
