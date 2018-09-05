@@ -113,14 +113,26 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param Closure $statement
+	 * @param Closure|string|array $statement
+	 * @return void
 	 * @throws Exception
 	 */
-	private function runQuery(Closure $statement) {
-		if(!is_callable($statement)) {
-			throw new Exception("Invalid statement. Require a Closure to run.");
+	private function runQuery($statement) {
+		if(is_string($statement)) {
+			$this->db->exec($statement);
+			return;
 		}
-		call_user_func($statement, $this->db);
+		if(is_array($statement)) {
+			foreach($statement as $stmt) {
+				$this->runQuery($stmt);
+			}
+			return;
+		}
+		if(is_callable($statement)) {
+			call_user_func($statement, $this->db);
+			return;
+		}
+		throw new Exception("Invalid statement. Require a Closure to run.");
 	}
 
 	/**
