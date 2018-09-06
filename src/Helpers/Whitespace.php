@@ -18,7 +18,7 @@ class Whitespace {
 
 	/**
 	 * @param string $data
-	 * @return array
+	 * @return string
 	 */
 	public function stripMargin($data) {
 		$lines = preg_split("/\\r?\\n/", $data);

@@ -10,6 +10,8 @@ class MigrationManager {
 	private $db;
 	/** @var LoggerInterface */
 	private $logger;
+	/** @var string */
+	private $migrationScriptPath;
 
 	/**
 	 * @param DBAdapter $db
@@ -36,14 +38,10 @@ class MigrationManager {
 			$path = $this->concatPaths($this->migrationScriptPath, $file);
 			if(is_file($path)) {
 				$entry = $this->getEntry($path);
-				$shortEntry = $entry;
-				if(preg_match('/^([\\d\\-]+).*(\\.php)$/', $entry, $matches)) {
-					$shortEntry = sprintf('%s%s', $matches[1], $matches[2]);
-				}
-				if(!$this->db->hasEntry($shortEntry)) {
+				if(!$this->db->hasEntry($entry)) {
 					$this->logger->info("Try to run upgrade file {$file}");
 					$this->up($file);
-					$this->db->addEntry($shortEntry);
+					$this->db->addEntry($entry);
 					$this->logger->info("Done.");
 				}
 			}
