@@ -10,6 +10,7 @@ use PDOStatement;
 use Kir\DB\Migrations\DBAdapter;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 
 class PdoDBAdapter implements DBAdapter {
 	private PDO $db;
@@ -22,9 +23,9 @@ class PdoDBAdapter implements DBAdapter {
 	/**
 	 * @param PDO $db
 	 * @param string $tableName
-	 * @param LoggerInterface $logger
+	 * @param ?LoggerInterface $logger
 	 */
-	public function __construct(PDO $db, $tableName='migrations', LoggerInterface $logger = null) {
+	public function __construct(PDO $db, string $tableName = 'migrations', LoggerInterface $logger = null) {
 		$this->db = $db;
 		$this->tableName = $tableName;
 		$this->createMigrationsStore();
@@ -49,7 +50,7 @@ class PdoDBAdapter implements DBAdapter {
 		$entry = EntryName::shorten($entry);
 		
 		return $this->execStmt($this->statements['has'], ['entry' => $entry], function (PDOStatement $stmt) {
-			$count = intval($stmt->fetchColumn(0));
+			$count = (int) $stmt->fetchColumn(0);
 			return $count > 0;
 		});
 	}
@@ -61,7 +62,7 @@ class PdoDBAdapter implements DBAdapter {
 	public function addEntry($entry) {
 		$entry = EntryName::shorten($entry);
 		if(!$this->hasEntry($entry)) {
-			$this->execStmt($this->statements['add'], ['entry' => $entry]);
+			$this->execStmt($this->statements['add'], ['entry' => $entry], fn($x) => $x);
 		}
 		return $this;
 	}
@@ -131,22 +132,23 @@ class PdoDBAdapter implements DBAdapter {
 	}
 	
 	/**
+	 * @template T
 	 * @param string $query
 	 * @param array $args
-	 * @param callable|null $callback
-	 * @return mixed
+	 * @param callable(PDOStatement): T $callback
+	 * @return T
 	 */
 	private function execStmt($query, array $args, $callback = null) {
 		$stmt = $this->db->prepare($query);
+		if($stmt === false) {
+			throw new RuntimeException("Failed to prepare query: {$query}");
+		}
 		try {
 			foreach($args as $key => $value) {
 				$stmt->bindValue($key, $value);
 			}
 			$stmt->execute();
-			if($callback) {
-				return call_user_func($callback, $stmt);
-			}
-			return null;
+			return $callback($stmt);
 		} finally {
 			if($stmt instanceof PDOStatement) {
 				$stmt->closeCursor();
@@ -182,18 +184,16 @@ class PdoDBAdapter implements DBAdapter {
 	 * Fix wrong entries
 	 */
 	private function fixEntries() {
-		$entries = $this->execStmt($this->statements['fix'], [], function (PDOStatement $stmt) {
-			return $stmt->fetchAll(PDO::FETCH_ASSOC);
-		});
+		$entries = $this->execStmt($this->statements['fix'], [], fn (PDOStatement $stmt) => $stmt->fetchAll(PDO::FETCH_ASSOC));
 		foreach($entries as $entry) {
 			$oldEntry = $entry['entry'];
 			$newEntry = EntryName::shorten($oldEntry);
 			
 			// Remove possibly existing $newEntry before renaming the wrong one...
-			$this->execStmt($this->statements['fix_delete'], ['entry' => $newEntry]);
+			$this->execStmt($this->statements['fix_delete'], ['entry' => $newEntry], fn($x) => $x);
 			
 			// Rename the old name to the short-one
-			$this->execStmt($this->statements['fix_update'], ['old_entry' => $oldEntry, 'new_entry' => $newEntry]);
+			$this->execStmt($this->statements['fix_update'], ['old_entry' => $oldEntry, 'new_entry' => $newEntry], fn($x) => $x);
 		}
 	}
 }
