@@ -12,16 +12,12 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 class PdoDBAdapter implements DBAdapter {
-	/** @var PDO */
-	private $db = null;
+	private PDO $db;
 	/** @var PDOStatement[] */
-	private $statements = array();
-	/** @var string */
-	private $tableName;
-	/** @var LoggerInterface */
-	private $logger;
-	/** @var Whitespace */
-	private $whitespace = null;
+	private array $statements = [];
+	private string $tableName;
+	private LoggerInterface $logger;
+	private Whitespace $whitespace;
 
 	/**
 	 * @param PDO $db

@@ -2,8 +2,9 @@
 namespace Kir\DB\Migrations\DBAdapters;
 
 use PDO;
+use PHPUnit\Framework\TestCase;
 
-class PdoDBAdapterTest extends \PHPUnit_Framework_TestCase {
+class PdoDBAdapterTest extends TestCase {
 	public function testExecResult() {
 		$pdo = new PDO('sqlite::memory:');
 		$adapter = new PdoDBAdapter($pdo, 'test');
