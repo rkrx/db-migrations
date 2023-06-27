@@ -1,6 +1,7 @@
 <?php
 namespace Kir\DB\Migrations\DBAdapters;
 
+use JetBrains\PhpStorm\Language;
 use Kir\DB\Migrations\ExecResult;
 use Kir\DB\Migrations\Helpers\EntryName;
 use Kir\DB\Migrations\Helpers\Whitespace;
@@ -80,7 +81,11 @@ class PdoDBAdapter implements DBAdapter {
 	 * @param array $args
 	 * @return QueryResult
 	 */
-	public function query($query, array $args = array()) {
+	public function query(
+		#[Language('MySQL')]
+		$query,
+		array $args = array()
+	) {
 		$query = $this->whitespace->stripMargin($query);
 		$this->logger->info("\n{$query}");
 
@@ -101,7 +106,11 @@ class PdoDBAdapter implements DBAdapter {
 	 * @param array $args
 	 * @return ExecResult
 	 */
-	public function exec($query, array $args = array()) {
+	public function exec(
+		#[Language('MySQL')]
+		$query,
+		array $args = array()
+	) {
 		$query = $this->whitespace->stripMargin($query);
 		$this->logger->info("\n{$query}");
 
@@ -138,7 +147,11 @@ class PdoDBAdapter implements DBAdapter {
 	 * @param callable(PDOStatement): T $callback
 	 * @return T
 	 */
-	private function execStmt($query, array $args, $callback = null) {
+	private function execStmt(
+		#[Language('MySQL')]
+		$query,
+		array $args, $callback = null
+	) {
 		$stmt = $this->db->prepare($query);
 		if($stmt === false) {
 			throw new RuntimeException("Failed to prepare query: {$query}");
