@@ -1,6 +1,7 @@
 <?php
 namespace Kir\DB\Migrations;
 
+use JetBrains\PhpStorm\Language;
 use Kir\DB\Migrations\DBAdapters\TableDef;
 
 interface DBAdapter {
@@ -27,12 +28,20 @@ interface DBAdapter {
 	 * @param array $args
 	 * @return QueryResult
 	 */
-	public function query($query, array $args = array());
+	public function query(
+		#[Language('MySQL')]
+		$query,
+		array $args = array()
+	);
 
 	/**
 	 * @param string $query
 	 * @param array $args
 	 * @return ExecResult
 	 */
-	public function exec($query, array $args = array());
+	public function exec(
+		#[Language('MySQL')]
+		$query,
+		array $args = array()
+	);
 }
