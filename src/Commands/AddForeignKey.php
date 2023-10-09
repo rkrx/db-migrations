@@ -7,12 +7,12 @@ class AddForeignKey {
 	/**
 	 * @param string $tableName
 	 * @param string $fkName
-	 * @param array<int, string> $localColumns
+	 * @param array<string> $localColumns
 	 * @param string $foreignTableName
-	 * @param array<int, string> $foreignColumns
-	 * @param string&('NO ACTION'|'CASCADE'|'RESTRICT'|'SET NULL'|'SET DEFAULT') $updateMode
-	 * @param string $deleteMode
-	 * @return array{up: Closure, down: Closure}
+	 * @param array<string> $foreignColumns
+	 * @param null|('NO ACTION'|'CASCADE'|'RESTRICT'|'SET NULL'|'SET DEFAULT') $updateMode
+	 * @param null|('NO ACTION'|'CASCADE'|'RESTRICT'|'SET NULL'|'SET DEFAULT') $deleteMode
+	 * @return array<array{up: Closure, down: Closure}>
 	 */
 	public static function of(string $tableName, string $fkName, array $localColumns, string $foreignTableName, array $foreignColumns, ?string $updateMode, ?string $deleteMode) {
 		if($updateMode === null || $updateMode === 'NO ACTION') {
@@ -46,12 +46,14 @@ class AddForeignKey {
 		$localColumnStr = implode(', ', array_map(static fn($column) => "`{$column}`", $localColumns));
 		$foreignColumnStr = implode(', ', array_map(static fn($column) => "`{$column}`", $foreignColumns));
 
-		$upStmt = sprintf('ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY (%s) REFERENCES `%s`(%s) ON DELETE %s ON UPDATE %s;', $tableName, $fkName, $localColumnStr, $foreignTableName, $foreignColumnStr, $onDelete, $onUpdate);
-		$downStmt = sprintf('ALTER TABLE `%s` DROP FOREIGN KEY `%s`;', $tableName, $fkName);
+		$upStmt = sprintf('ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY IF NOT EXISTS (%s) REFERENCES `%s`(%s) ON DELETE %s ON UPDATE %s;', $tableName, $fkName, $localColumnStr, $foreignTableName, $foreignColumnStr, $onDelete, $onUpdate);
+		$downStmt = sprintf('ALTER TABLE `%s` DROP FOREIGN KEY IF EXISTS `%s`;', $tableName, $fkName);
 
-		return [
+		return [[
+			'up' => fn(DBAdapter $db) => $db->exec($downStmt),
+		], [
 			'up' => fn(DBAdapter $db) => $db->exec($upStmt),
 			'down' => fn(DBAdapter $db) => $db->exec($downStmt)
-		];
+		]];
 	}
 }
