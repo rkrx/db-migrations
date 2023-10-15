@@ -77,20 +77,29 @@ class PdoDBAdapter implements DBAdapter {
 	 * @return string|null
 	 */
 	public function getDatabase(): ?string {
-		return $this->query('SELECT DATABASE()')->getValue();
+		$database = $this->query('SELECT DATABASE()')->getValue();
+		if(is_string($database)) {
+			return $database;
+		}
+		return null;
 	}
 
 	/**
 	 * @param string $tableName
+	 * @param string|null $database
 	 * @return TableObj
 	 */
-	public function table(string $tableName): TableObj {
-		return new TableObj($this, $tableName);
+	public function table(string $tableName, ?string $database = null): TableObj {
+		$database = $database ?? $this->getDatabase();
+		if($database === null) {
+			throw new RuntimeException("No database selected");
+		}
+		return new TableObj($this, $database, $tableName);
 	}
 
 	/**
 	 * @param string $query
-	 * @param array $args
+	 * @param array<string, null|scalar> $args
 	 * @return QueryResult
 	 */
 	public function query(
@@ -99,7 +108,7 @@ class PdoDBAdapter implements DBAdapter {
 		array $args = array()
 	): QueryResult {
 		$query = $this->whitespace->stripMargin($query);
-		$this->logger->info("\n{$query}");
+		$this->logger?->info("\n{$query}");
 
 		$stmt = $this->db->prepare($query);
 		foreach($args as $key => $value) {
@@ -115,16 +124,16 @@ class PdoDBAdapter implements DBAdapter {
 
 	/**
 	 * @param string $query
-	 * @param array $args
+	 * @param array<string, null|scalar> $args
 	 * @return ExecResult
 	 */
 	public function exec(
 		#[Language('MySQL')]
 		string $query,
-		array $args = array()
+		array $args = []
 	): ExecResult {
 		$query = $this->whitespace->stripMargin($query);
-		$this->logger->info("\n{$query}");
+		$this->logger?->info("\n{$query}");
 
 		$this->db->exec("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;");
 		$this->db->exec("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;");
@@ -138,6 +147,8 @@ class PdoDBAdapter implements DBAdapter {
 			$stmt->execute();
 	
 			$lastInsertId = $this->db->lastInsertId();
+			$lastInsertId = $lastInsertId !== false ? $lastInsertId : null;
+
 			$rowCount = $stmt->rowCount();
 			$result = new ExecResult($lastInsertId, $rowCount);
 	
@@ -155,15 +166,15 @@ class PdoDBAdapter implements DBAdapter {
 	/**
 	 * @template T
 	 * @param string $query
-	 * @param array $args
-	 * @param callable(PDOStatement): T $callback
+	 * @param array<string, null|scalar> $args
+	 * @param callable(PDOStatement):T $callback
 	 * @return T
 	 */
 	private function execStmt(
 		#[Language('MySQL')]
 		string $query,
 		array $args,
-		$callback = null
+		$callback
 	) {
 		$stmt = $this->db->prepare($query);
 		if($stmt === false) {
@@ -186,7 +197,8 @@ class PdoDBAdapter implements DBAdapter {
 	 * @return void
 	 */
 	private function createMigrationsStore(): void {
-		$driverName = (string) $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+		$driverName = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+		$driverName = is_string($driverName) ? $driverName : '';
 		$this->db->exec(
 			match (strtolower($driverName) === 'mysql') {
 				true => "
@@ -208,7 +220,7 @@ class PdoDBAdapter implements DBAdapter {
 	/**
 	 * Fix wrong entries
 	 */
-	private function fixEntries() {
+	private function fixEntries(): void {
 		$entries = $this->execStmt($this->statements['fix'], [], fn (PDOStatement $stmt) => $stmt->fetchAll(PDO::FETCH_ASSOC));
 		foreach($entries as $entry) {
 			$oldEntry = $entry['entry'];

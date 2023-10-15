@@ -2,39 +2,33 @@
 namespace Kir\DB\Migrations;
 
 class QueryResult {
-	/** @var array[] */
-	private $rows = null;
+	/**
+	 * @param array<array<string, null|scalar>> $rows
+	 */
+	public function __construct(private array $rows) {}
 
 	/**
-	 * @param array[] $rows
+	 * @return array<array<string, null|scalar>>
 	 */
-	function __construct(array $rows) {
-		$this->rows = $rows;
-	}
-
-	/**
-	 * @return array[]
-	 */
-	public function getRows() {
+	public function getRows(): array {
 		return $this->rows;
 	}
 
 	/**
-	 * @return array
+	 * @return null|array<string, null|scalar>
 	 */
-	public function getRow() {
-		foreach($this->getRows() as $row) {
-			return $row;
-		}
-		return null;
+	public function getRow(): ?array {
+		$rows = $this->getRows();
+		return $rows[0] ?? null;
 	}
 
 	/**
+	 * @template T
 	 * @param null|string $fieldName If not null, the first column gets returned
-	 * @param null|callable $mapFn
-	 * @return \string[]
+	 * @param null|callable(null|scalar):T $mapFn
+	 * @return ($mapFn is null ? array<null|scalar> : array<T>)
 	 */
-	public function getArray($fieldName = null, $mapFn = null) {
+	public function getArray(?string $fieldName = null, $mapFn = null): array {
 		$result = [];
 		foreach($this->rows as $row) {
 			if(!count($row)) {
@@ -49,7 +43,7 @@ class QueryResult {
 				$firstColumn = array_shift($row);
 			}
 			if($mapFn !== null) {
-				$firstColumn = call_user_func($mapFn, $firstColumn);
+				$firstColumn = $mapFn($firstColumn);
 			}
 			$result[] = $firstColumn;
 		}
@@ -59,22 +53,23 @@ class QueryResult {
 	/**
 	 * @param null|string $fieldName
 	 * @param null|callable $mapFn
-	 * @return string
+	 * @return null|scalar
 	 */
-	public function getValue($fieldName = null, $mapFn = null) {
+	public function getValue(?string $fieldName = null, $mapFn = null) {
 		$row = $this->getRow();
+		if($row === null) {
+			return null;
+		}
 		$value = null;
 		if($fieldName !== null) {
 			if(array_key_exists($fieldName, $row)) {
 				$value = $row[$fieldName];
 			}
-		} else {
-			if(count($row) > 0) {
-				$value = array_shift($row);
-			}
+		} elseif(count($row) > 0) {
+			$value = array_shift($row);
 		}
 		if($mapFn !== null) {
-			$value = call_user_func($mapFn, $value);
+			$value = $mapFn($value);
 		}
 		return $value;
 	}

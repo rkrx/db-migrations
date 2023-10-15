@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 class MigrationManagerTest extends TestCase {
-	public function testHasEntry() {
+	public function testHasEntry(): void {
 		$pdo = new PDO('sqlite::memory:');
 		$adapter = new PdoDBAdapter($pdo, 'test_migrations');
 		$mm = new MigrationManager($adapter, __DIR__.'/test-migrations', new NullLogger);
@@ -15,7 +15,7 @@ class MigrationManagerTest extends TestCase {
 		$this->assertEquals(true, $adapter->hasEntry('2015-01-01-12-00-00'));
 	}
 	
-	public function testHasEntryWithFix() {
+	public function testHasEntryWithFix(): void {
 		$pdo = new PDO('sqlite::memory:');
 		
 		// Create migration table and some entries

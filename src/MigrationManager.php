@@ -6,7 +6,6 @@ use Exception;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
-use Traversable;
 
 class MigrationManager {
 	private string $migrationScriptPath;
@@ -30,19 +29,21 @@ class MigrationManager {
 	public function migrate(): void {
 		$this->logger->info("Starting migration");
 
-		$files = scandir($this->migrationScriptPath);
-		sort($files);
+		$paths = glob("{$this->migrationScriptPath}/*.php");
+		if(!is_array($paths)) {
+			throw new RuntimeException("Invalid migration script path: {$this->migrationScriptPath}");
+		}
 
-		foreach($files as $file) {
-			$path = $this->concatPaths($this->migrationScriptPath, $file);
-			if(is_file($path)) {
-				$entry = $this->getEntry($path);
-				if(!$this->db->hasEntry($entry)) {
-					$this->logger->info("Try to run upgrade file {$file}");
-					$this->up($file);
-					$this->db->addEntry($entry);
-					$this->logger->info("Done.");
-				}
+		$paths = array_filter($paths, static fn(string $path) => is_file($path));
+		sort($paths);
+
+		foreach($paths as $path) {
+			$entry = $this->getEntry($path);
+			if(!$this->db->hasEntry($entry)) {
+				$this->logger->info("Try to run upgrade file {$path}");
+				$this->up($path);
+				$this->db->addEntry($entry);
+				$this->logger->info("Done.");
 			}
 		}
 
@@ -50,11 +51,10 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param string $file
-	 * @throws \Exception
+	 * @param string $path
+	 * @throws Throwable
 	 */
-	public function up($file) {
-		$path = $this->concatPaths($this->migrationScriptPath, $file);
+	public function up(string $path): void {
 		$data = require $path;
 		$statements = $data['statements'];
 
@@ -73,7 +73,7 @@ class MigrationManager {
 				foreach($rollback as $rollbackStmt) {
 					try {
 						$this->runQuery($rollbackStmt);
-					} catch(\Exception $e) {
+					} catch(Throwable $e) {
 					}
 				}
 				throw $e;
@@ -85,7 +85,7 @@ class MigrationManager {
 	 * @param string $file
 	 * @throws Throwable
 	 */
-	public function down($file) {
+	public function down(string $file): void {
 		$path = $this->concatPaths($this->migrationScriptPath, $file);
 		$data = require $path;
 		$statements = array_reverse($data['statements']);
@@ -110,7 +110,7 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param Closure|string|array|null $statement
+	 * @param Closure|string|array<string, string>|null $statement
 	 * @return void
 	 * @throws Exception
 	 */

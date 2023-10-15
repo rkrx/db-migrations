@@ -1,27 +1,20 @@
 <?php
 namespace Kir\DB\Migrations\Helpers;
 
-class Whitespace {
-	/** @var int */
-	private $tabWidth;
-	/** @var string */
-	private $lineBreak;
+use InvalidArgumentException;
 
-	/**
-	 * @param int $tabWidth
-	 * @param string $lineBreak
-	 */
-	public function __construct($tabWidth = 4, $lineBreak = "\n") {
-		$this->tabWidth = $tabWidth;
-		$this->lineBreak = $lineBreak;
-	}
+class Whitespace {
+	public function __construct(private int $tabWidth = 4, private string $lineBreak = "\n") {}
 
 	/**
 	 * @param string $data
 	 * @return string
 	 */
-	public function stripMargin($data) {
-		$lines = preg_split("/\\r?\\n/", $data);
+	public function stripMargin(string $data): string {
+		$lines = preg_split("{\\r?\\n}", $data);
+		if(!is_array($lines)) {
+			throw new InvalidArgumentException("Invalid data");
+		}
 		$tabs = str_repeat(' ', $this->tabWidth);
 		$lines = $this->stripHead($lines);
 		$lines = array_reverse($lines);
@@ -29,15 +22,15 @@ class Whitespace {
 		$lines = array_reverse($lines);
 		$lines = $this->stripLeft($lines, $tabs);
 		$lines = $this->stripRight($lines);
-		return join($this->lineBreak, $lines);
+		return implode($this->lineBreak, $lines);
 	}
 
 	/**
-	 * @param array $lines
-	 * @return array
+	 * @param string[] $lines
+	 * @return string[]
 	 */
-	private function stripHead($lines) {
-		while(count($lines) > 0 && !strlen(trim($lines[0]))) {
+	private function stripHead(array $lines): array {
+		while(count($lines) > 0 && trim($lines[0]) === '') {
 			array_shift($lines);
 			$lines = array_values($lines);
 		}
@@ -45,35 +38,36 @@ class Whitespace {
 	}
 
 	/**
-	 * @param array $lines
+	 * @param string[] $lines
 	 * @param string $tabs
-	 * @return array
+	 * @return string[]
 	 */
-	private function stripLeft($lines, $tabs) {
+	private function stripLeft(array $lines, string $tabs): array {
 		$indentation = null;
 
-		foreach($lines as &$line) {
+		$result = [];
+		foreach($lines as $line) {
 			preg_match('/^([\\t ]*)/', $line, $matches);
 			$whitespace = strtr($matches[1], ["\t" => $tabs]);
-			$line = $whitespace . ltrim($line);
+			$result[] = $whitespace . ltrim($line);
 			if($indentation === null) {
 				$indentation = strlen($whitespace);
 			}
 			$indentation = min(strlen($whitespace), $indentation);
 		}
 
-		foreach($lines as &$line) {
-			$line = substr($line, $indentation);
+		if($indentation === null) {
+			return $lines;
 		}
 
-		return $lines;
+		return array_map(static fn($line) => substr($line, $indentation), $result);
 	}
 
 	/**
-	 * @param array $lines
-	 * @return array
+	 * @param string[] $lines
+	 * @return string[]
 	 */
-	private function stripRight($lines) {
+	private function stripRight(array $lines): array {
 		return array_map('rtrim', $lines);
 	}
 }

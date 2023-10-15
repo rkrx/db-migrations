@@ -32,5 +32,8 @@
 		"psr-4": {
 			"Kir\\DB\\Migrations\\": "tests/"
 		}
+	},
+	"scripts": {
+		"phpstan": "phpstan analyse -c phpstan.neon"
 	}
 }

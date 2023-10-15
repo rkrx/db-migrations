@@ -5,7 +5,7 @@ namespace Kir\DB\Migrations\Helpers;
 use PHPUnit\Framework\TestCase;
 
 class WhitespaceTest extends TestCase {
-	public function testAll() {
+	public function testAll(): void {
 		$testData = "
 			
 			

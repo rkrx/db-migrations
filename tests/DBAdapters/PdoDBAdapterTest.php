@@ -5,7 +5,7 @@ use PDO;
 use PHPUnit\Framework\TestCase;
 
 class PdoDBAdapterTest extends TestCase {
-	public function testExecResult() {
+	public function testExecResult(): void {
 		$pdo = new PDO('sqlite::memory:');
 		$adapter = new PdoDBAdapter($pdo, 'test');
 		$adapter->exec("
@@ -20,7 +20,7 @@ class PdoDBAdapterTest extends TestCase {
 		}
 	}
 
-	public function testQuery() {
+	public function testQuery(): void {
 		$pdo = new PDO('sqlite::memory:');
 		$adapter = new PdoDBAdapter($pdo, 'test');
 		$adapter->exec("

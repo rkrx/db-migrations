@@ -2,31 +2,22 @@
 namespace Kir\DB\Migrations;
 
 class ExecResult {
-	/** @var int */
-	private $lastInsertId;
-	/** @var int */
-	private $rowsAffected;
+	function __construct(
+		private ?string $lastInsertId,
+		private int $rowsAffected
+	) {}
 
 	/**
-	 * @param int $lastInsertId
-	 * @param int $rowsAffected
+	 * @return string|null
 	 */
-	function __construct($lastInsertId, $rowsAffected) {
-		$this->lastInsertId = $lastInsertId;
-		$this->rowsAffected = $rowsAffected;
-	}
-
-	/**
-	 * @return int
-	 */
-	public function getLastInsertId() {
+	public function getLastInsertId(): ?string {
 		return $this->lastInsertId;
 	}
 
 	/**
 	 * @return int
 	 */
-	public function getRowsAffected() {
+	public function getRowsAffected(): int {
 		return $this->rowsAffected;
 	}
 }
