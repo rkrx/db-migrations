@@ -2,46 +2,52 @@
 namespace Kir\DB\Migrations;
 
 use JetBrains\PhpStorm\Language;
-use Kir\DB\Migrations\DBAdapters\TableDef;
+use Kir\DB\Migrations\Common\Command;
+use Kir\DB\Migrations\DBAdapters\TableObj;
 
 interface DBAdapter {
 	/**
 	 * @param string $entry
-	 * @return string
+	 * @return bool
 	 */
-	public function hasEntry($entry);
+	public function hasEntry(string $entry): bool;
 
 	/**
 	 * @param string $entry
 	 * @return $this
 	 */
-	public function addEntry($entry);
+	public function addEntry(string $entry): self;
+
+	/**
+	 * @return string|null
+	 */
+	public function getDatabase(): ?string;
 
 	/**
 	 * @param string $tableName
-	 * @return TableDef
+	 * @return TableObj
 	 */
-	public function table($tableName);
+	public function table(string $tableName): TableObj;
 
 	/**
 	 * @param string $query
-	 * @param array $args
+	 * @param array<string, null|scalar> $args
 	 * @return QueryResult
 	 */
 	public function query(
 		#[Language('MySQL')]
-		$query,
+		string $query,
 		array $args = array()
-	);
+	): QueryResult;
 
 	/**
 	 * @param string $query
-	 * @param array $args
+	 * @param array<string, null|scalar> $args
 	 * @return ExecResult
 	 */
 	public function exec(
 		#[Language('MySQL')]
-		$query,
+		string $query,
 		array $args = array()
-	);
+	): ExecResult;
 }

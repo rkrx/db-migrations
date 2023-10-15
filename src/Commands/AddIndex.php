@@ -3,6 +3,7 @@
 namespace Kir\DB\Migrations\Commands;
 
 use Kir\DB\Migrations\DBAdapter;
+use Closure;
 
 class AddIndex {
 	/**

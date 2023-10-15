@@ -4,31 +4,30 @@ namespace Kir\DB\Migrations;
 use Closure;
 use Exception;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
+use Throwable;
+use Traversable;
 
 class MigrationManager {
-	/** @var DBAdapter */
-	private $db;
-	/** @var LoggerInterface */
-	private $logger;
-	/** @var string */
-	private $migrationScriptPath;
+	private string $migrationScriptPath;
 
 	/**
 	 * @param DBAdapter $db
 	 * @param string $migrationScriptPath
 	 * @param LoggerInterface $logger
 	 */
-	public function __construct(DBAdapter $db, $migrationScriptPath, LoggerInterface $logger) {
-		$this->db = $db;
-		$this->logger = $logger;
+	public function __construct(
+		private DBAdapter $db,
+		string $migrationScriptPath,
+		private LoggerInterface $logger
+	) {
 		$migrationScriptPath = str_replace(DIRECTORY_SEPARATOR, '/', $migrationScriptPath);
 		$this->migrationScriptPath = $migrationScriptPath;
 	}
 
 	/**
-	 * @return $this
 	 */
-	public function migrate() {
+	public function migrate(): void {
 		$this->logger->info("Starting migration");
 
 		$files = scandir($this->migrationScriptPath);
@@ -59,7 +58,7 @@ class MigrationManager {
 		$data = require $path;
 		$statements = $data['statements'];
 
-		$rollback = array();
+		$rollback = [];
 		foreach($statements as $statement) {
 			try {
 				if(array_key_exists('down', $statement)) {
@@ -84,7 +83,7 @@ class MigrationManager {
 
 	/**
 	 * @param string $file
-	 * @throws \Exception
+	 * @throws Throwable
 	 */
 	public function down($file) {
 		$path = $this->concatPaths($this->migrationScriptPath, $file);
@@ -111,11 +110,11 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param Closure|string|array $statement
+	 * @param Closure|string|array|null $statement
 	 * @return void
 	 * @throws Exception
 	 */
-	private function runQuery($statement) {
+	private function runQuery(Closure|string|array|null $statement): void {
 		if(is_string($statement)) {
 			$this->db->exec($statement);
 			return;
@@ -127,10 +126,10 @@ class MigrationManager {
 			return;
 		}
 		if(is_callable($statement)) {
-			call_user_func($statement, $this->db);
+			$statement($this->db);
 			return;
 		}
-		throw new Exception("Invalid statement. Require a Closure to run.");
+		throw new RuntimeException("Invalid statement. Require a Closure to run.");
 	}
 
 	/**
@@ -138,17 +137,17 @@ class MigrationManager {
 	 * @param string $path2
 	 * @return string
 	 */
-	private function concatPaths($path1, $path2) {
+	private function concatPaths(string $path1, string $path2): string {
 		$path1 = rtrim($path1, '/');
 		$path2 = ltrim($path2, '/');
-		return $path1 . '/' . $path2;
+		return trim("{$path1}/{$path2}", '/');
 	}
 
 	/**
 	 * @param string $path
 	 * @return string
 	 */
-	private function getEntry($path) {
+	private function getEntry(string $path): string {
 		return basename($path);
 	}
 }

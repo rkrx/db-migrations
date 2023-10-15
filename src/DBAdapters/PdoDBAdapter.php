@@ -2,6 +2,9 @@
 namespace Kir\DB\Migrations\DBAdapters;
 
 use JetBrains\PhpStorm\Language;
+use Kir\DB\Migrations\Commands\EnsureColumn;
+use Kir\DB\Migrations\Common\Command;
+use Kir\DB\Migrations\Common\Expr;
 use Kir\DB\Migrations\ExecResult;
 use Kir\DB\Migrations\Helpers\EntryName;
 use Kir\DB\Migrations\Helpers\Whitespace;
@@ -14,11 +17,9 @@ use Psr\Log\NullLogger;
 use RuntimeException;
 
 class PdoDBAdapter implements DBAdapter {
-	private PDO $db;
-	/** @var PDOStatement[] */
+	/** @var array<string, string> */
 	private array $statements = [];
 	private string $tableName;
-	private LoggerInterface $logger;
 	private Whitespace $whitespace;
 
 	/**
@@ -26,7 +27,11 @@ class PdoDBAdapter implements DBAdapter {
 	 * @param string $tableName
 	 * @param ?LoggerInterface $logger
 	 */
-	public function __construct(PDO $db, string $tableName = 'migrations', LoggerInterface $logger = null) {
+	public function __construct(
+		private PDO $db,
+		string $tableName = 'migrations',
+		private ?LoggerInterface $logger = null
+	) {
 		$this->db = $db;
 		$this->tableName = $tableName;
 		$this->createMigrationsStore();
@@ -45,9 +50,9 @@ class PdoDBAdapter implements DBAdapter {
 
 	/**
 	 * @param string $entry
-	 * @return string
+	 * @return bool
 	 */
-	public function hasEntry($entry) {
+	public function hasEntry(string $entry): bool {
 		$entry = EntryName::shorten($entry);
 		
 		return $this->execStmt($this->statements['has'], ['entry' => $entry], function (PDOStatement $stmt) {
@@ -60,7 +65,7 @@ class PdoDBAdapter implements DBAdapter {
 	 * @param string $entry
 	 * @return $this
 	 */
-	public function addEntry($entry) {
+	public function addEntry(string $entry): self {
 		$entry = EntryName::shorten($entry);
 		if(!$this->hasEntry($entry)) {
 			$this->execStmt($this->statements['add'], ['entry' => $entry], fn($x) => $x);
@@ -69,11 +74,18 @@ class PdoDBAdapter implements DBAdapter {
 	}
 
 	/**
-	 * @param string $tableName
-	 * @return TableDef
+	 * @return string|null
 	 */
-	public function table($tableName) {
-		return new TableDef($this, $tableName);
+	public function getDatabase(): ?string {
+		return $this->query('SELECT DATABASE()')->getValue();
+	}
+
+	/**
+	 * @param string $tableName
+	 * @return TableObj
+	 */
+	public function table(string $tableName): TableObj {
+		return new TableObj($this, $tableName);
 	}
 
 	/**
@@ -83,9 +95,9 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	public function query(
 		#[Language('MySQL')]
-		$query,
+		string $query,
 		array $args = array()
-	) {
+	): QueryResult {
 		$query = $this->whitespace->stripMargin($query);
 		$this->logger->info("\n{$query}");
 
@@ -108,9 +120,9 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	public function exec(
 		#[Language('MySQL')]
-		$query,
+		string $query,
 		array $args = array()
-	) {
+	): ExecResult {
 		$query = $this->whitespace->stripMargin($query);
 		$this->logger->info("\n{$query}");
 
@@ -149,8 +161,9 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	private function execStmt(
 		#[Language('MySQL')]
-		$query,
-		array $args, $callback = null
+		string $query,
+		array $args,
+		$callback = null
 	) {
 		$stmt = $this->db->prepare($query);
 		if($stmt === false) {
@@ -170,27 +183,26 @@ class PdoDBAdapter implements DBAdapter {
 	}
 
 	/**
-	 * @return $this
+	 * @return void
 	 */
-	private function createMigrationsStore() {
-		$driverName = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-		switch(strtolower($driverName)) {
-			case 'mysql':
-				$this->db->exec("
+	private function createMigrationsStore(): void {
+		$driverName = (string) $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+		$this->db->exec(
+			match (strtolower($driverName) === 'mysql') {
+				true => "
 					CREATE TABLE IF NOT EXISTS {$this->tableName} (
 						`entry` VARCHAR(255) NOT NULL DEFAULT '' COLLATE 'latin1_bin',
 						PRIMARY KEY (`entry`)
 					) COLLATE='latin1_bin' ENGINE=InnoDB;
-				");
-				break;
-			default:
-				$this->db->exec("
+				",
+				default => "
 					CREATE TABLE IF NOT EXISTS {$this->tableName} (
 						`entry` VARCHAR(255) NOT NULL DEFAULT '',
 						PRIMARY KEY (`entry`)
 					);
-				");
-		}
+				"
+			}
+		);
 	}
 	
 	/**
