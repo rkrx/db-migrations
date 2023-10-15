@@ -32,7 +32,7 @@ class TableObj {
 	public function hasColumn(string $name): bool {
 		$result = $this->adapter->query("
 			SELECT COUNT(*)
-			FROM information_schema.COLUMNS c
+			FROM information_schema.columns c
 			WHERE c.TABLE_SCHEMA = DATABASE()
 			  AND c.TABLE_NAME = :table 
 			  AND c.COLUMN_NAME = :column
@@ -43,7 +43,7 @@ class TableObj {
 	public function hasIndex(string $name): bool {
 		$result = $this->adapter->query("
 			SELECT COUNT(*)
-			FROM INFORMATION_SCHEMA.STATISTICS
+			FROM information_schema.statistics
 			WHERE TABLE_SCHEMA = DATABASE()
 			  AND TABLE_NAME = :table
 			  AND INDEX_NAME = :index

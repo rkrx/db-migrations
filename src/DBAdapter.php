@@ -37,7 +37,7 @@ interface DBAdapter {
 	public function query(
 		#[Language('MySQL')]
 		string $query,
-		array $args = array()
+		array $args = []
 	): QueryResult;
 
 	/**
@@ -48,6 +48,6 @@ interface DBAdapter {
 	public function exec(
 		#[Language('MySQL')]
 		string $query,
-		array $args = array()
+		array $args = []
 	): ExecResult;
 }
