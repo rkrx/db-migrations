@@ -35,12 +35,13 @@ class MigrationManager {
 		}
 
 		$paths = array_filter($paths, static fn(string $path) => is_file($path));
+		$paths = array_map(static fn($path) => realpath($path) ?: $path, $paths);
 		sort($paths);
 
 		foreach($paths as $path) {
 			$entry = $this->getEntry($path);
 			if(!$this->db->hasEntry($entry)) {
-				$this->logger->info("Try to run upgrade file {$path}");
+				$this->logger->info(sprintf("Try to run upgrade file %s", basename($path)));
 				$this->up($path);
 				$this->db->addEntry($entry);
 				$this->logger->info("Done.");
@@ -82,15 +83,14 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param string $file
+	 * @param string $path
 	 * @throws Throwable
 	 */
-	public function down(string $file): void {
-		$path = $this->concatPaths($this->migrationScriptPath, $file);
+	public function down(string $path): void {
 		$data = require $path;
 		$statements = array_reverse($data['statements']);
 
-		$rollback = array();
+		$rollback = [];
 		foreach($statements as $statement) {
 			try {
 				if(array_key_exists('down', $statement)) {
@@ -130,17 +130,6 @@ class MigrationManager {
 			return;
 		}
 		throw new RuntimeException("Invalid statement. Require a Closure to run.");
-	}
-
-	/**
-	 * @param string $path1
-	 * @param string $path2
-	 * @return string
-	 */
-	private function concatPaths(string $path1, string $path2): string {
-		$path1 = rtrim($path1, '/');
-		$path2 = ltrim($path2, '/');
-		return trim("{$path1}/{$path2}", '/');
 	}
 
 	/**

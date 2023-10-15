@@ -1,9 +1,10 @@
 <?php
-namespace Kir\DB\Migrations\DBAdapters;
+namespace Kir\DB\Migrations\Helpers;
 
 use Kir\DB\Migrations\Common\ColumnDef;
 use Kir\DB\Migrations\Common\Expr;
 use Kir\DB\Migrations\DBAdapter;
+use Kir\DB\Migrations\DBAdapters\Columns;
 
 class TableObj {
 	public function __construct(
@@ -14,9 +15,9 @@ class TableObj {
 
 	public function exists(): bool {
 		return (bool) $this->adapter->query('
-				  SELECT COUNT(*) 
-					FROM information_schema.columns 
-				   WHERE TABLE_SCHEMA=:d 
+				  SELECT COUNT(*)
+					FROM information_schema.columns
+				   WHERE TABLE_SCHEMA=:d
 				     AND TABLE_NAME=:t
 				ORDER BY ORDINAL_POSITION
 			', ['d' => $this->database, 't' => $this->tableName]
@@ -31,7 +32,7 @@ class TableObj {
 		$data = $this->adapter->query('
 				  SELECT *
 				    FROM information_schema.columns c
-				   WHERE c.TABLE_SCHEMA=DATABASE() 
+				   WHERE c.TABLE_SCHEMA=DATABASE()
 				     AND c.TABLE_NAME=:t
 				ORDER BY c.ORDINAL_POSITION
 			', ['d' => $this->database, 't' => $this->tableName]
@@ -72,7 +73,7 @@ class TableObj {
 			SELECT COUNT(*)
 			  FROM information_schema.columns c
 			 WHERE c.TABLE_SCHEMA = :d
-			   AND c.TABLE_NAME = :t 
+			   AND c.TABLE_NAME = :t
 			   AND c.COLUMN_NAME = :c
 		', ['d' => $this->database, 't' => $this->tableName, 'c' => $name]);
 		return (bool) $result->getValue();

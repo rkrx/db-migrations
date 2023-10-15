@@ -2,8 +2,7 @@
 namespace Kir\DB\Migrations;
 
 use JetBrains\PhpStorm\Language;
-use Kir\DB\Migrations\Common\Command;
-use Kir\DB\Migrations\DBAdapters\TableObj;
+use Kir\DB\Migrations\Helpers\TableObj;
 
 interface DBAdapter {
 	/**

@@ -5,13 +5,14 @@ use JetBrains\PhpStorm\Language;
 use Kir\DB\Migrations\Commands\EnsureColumn;
 use Kir\DB\Migrations\Common\Command;
 use Kir\DB\Migrations\Common\Expr;
+use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\ExecResult;
 use Kir\DB\Migrations\Helpers\EntryName;
+use Kir\DB\Migrations\Helpers\TableObj;
 use Kir\DB\Migrations\Helpers\Whitespace;
 use Kir\DB\Migrations\QueryResult;
 use PDO;
 use PDOStatement;
-use Kir\DB\Migrations\DBAdapter;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
@@ -19,7 +20,6 @@ use RuntimeException;
 class PdoDBAdapter implements DBAdapter {
 	/** @var array<string, string> */
 	private array $statements = [];
-	private string $tableName;
 	private Whitespace $whitespace;
 
 	/**
@@ -29,11 +29,9 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	public function __construct(
 		private PDO $db,
-		string $tableName = 'migrations',
+		private string $tableName = 'migrations',
 		private ?LoggerInterface $logger = null
 	) {
-		$this->db = $db;
-		$this->tableName = $tableName;
 		$this->createMigrationsStore();
 		$this->whitespace = new Whitespace();
 		$this->statements['fix'] = "SELECT entry FROM {$tableName} WHERE LENGTH(entry)!=19;";
@@ -54,7 +52,7 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	public function hasEntry(string $entry): bool {
 		$entry = EntryName::shorten($entry);
-		
+
 		return $this->execStmt($this->statements['has'], ['entry' => $entry], function (PDOStatement $stmt) {
 			$count = (int) $stmt->fetchColumn(0);
 			return $count > 0;
@@ -145,16 +143,16 @@ class PdoDBAdapter implements DBAdapter {
 				$stmt->bindValue($key, $value);
 			}
 			$stmt->execute();
-	
+
 			$lastInsertId = $this->db->lastInsertId();
 			$lastInsertId = $lastInsertId !== false ? $lastInsertId : null;
 
 			$rowCount = $stmt->rowCount();
 			$result = new ExecResult($lastInsertId, $rowCount);
-	
+
 			$this->db->exec("/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;");
 			$this->db->exec("/*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;");
-	
+
 			return $result;
 		} finally {
 			if($stmt instanceof PDOStatement) {
@@ -216,7 +214,7 @@ class PdoDBAdapter implements DBAdapter {
 			}
 		);
 	}
-	
+
 	/**
 	 * Fix wrong entries
 	 */
@@ -225,10 +223,10 @@ class PdoDBAdapter implements DBAdapter {
 		foreach($entries as $entry) {
 			$oldEntry = $entry['entry'];
 			$newEntry = EntryName::shorten($oldEntry);
-			
+
 			// Remove possibly existing $newEntry before renaming the wrong one...
 			$this->execStmt($this->statements['fix_delete'], ['entry' => $newEntry], fn($x) => $x);
-			
+
 			// Rename the old name to the short-one
 			$this->execStmt($this->statements['fix_update'], ['old_entry' => $oldEntry, 'new_entry' => $newEntry], fn($x) => $x);
 		}
