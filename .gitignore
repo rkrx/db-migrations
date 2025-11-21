@@ -6,6 +6,7 @@
 !/.gitignore
 !/composer.json
 !/INSTRUCTIONS.md
+!/AGENTS.md
 !/LICENSE
 !/phpstan.neon
 !/README.md

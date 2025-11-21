@@ -21,7 +21,7 @@ return [
        /* Another statement */
     ], [  
        /* Another statement ... */
-    ]],  
+    ]],
 ];
 ```
 
