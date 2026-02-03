@@ -37,8 +37,11 @@ class PdoDBAdapter implements DBAdapter {
 		$this->statements['fix'] = "SELECT entry FROM {$tableName} WHERE LENGTH(entry)!=19;";
 		$this->statements['fix_delete'] = "DELETE FROM {$tableName} WHERE entry=:entry";
 		$this->statements['fix_update'] = "UPDATE {$tableName} SET entry=:new_entry WHERE entry=:old_entry";
-		$this->statements['has'] = "SELECT COUNT(*) FROM {$tableName} WHERE entry=:entry;";
-		$this->statements['add'] = "INSERT INTO {$tableName} (entry) VALUES (:entry);";
+		$this->statements['list'] = "SELECT entry FROM {$tableName};";
+		$driverName = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+		$driverName = is_string($driverName) ? strtolower($driverName) : '';
+		$insertPrefix = $driverName === 'mysql' ? 'INSERT IGNORE' : 'INSERT OR IGNORE';
+		$this->statements['add'] = "{$insertPrefix} INTO {$tableName} (entry) VALUES (:entry);";
 		if($logger === null) {
 			$logger = new NullLogger();
 		}
@@ -48,27 +51,32 @@ class PdoDBAdapter implements DBAdapter {
 
 	/**
 	 * @param string $entry
-	 * @return bool
-	 */
-	public function hasEntry(string $entry): bool {
-		$entry = EntryName::shorten($entry);
-
-		return $this->execStmt($this->statements['has'], ['entry' => $entry], function (PDOStatement $stmt) {
-			$count = (int) $stmt->fetchColumn(0);
-			return $count > 0;
-		});
-	}
-
-	/**
-	 * @param string $entry
 	 * @return $this
 	 */
 	public function addEntry(string $entry): self {
 		$entry = EntryName::shorten($entry);
-		if(!$this->hasEntry($entry)) {
-			$this->execStmt($this->statements['add'], ['entry' => $entry], fn($x) => $x);
-		}
+		$this->execStmt($this->statements['add'], ['entry' => $entry], fn($x) => $x);
 		return $this;
+	}
+
+	/**
+	 * @return array<string>
+	 */
+	public function listEntries(): array {
+		return $this->execStmt($this->statements['list'], [], function (PDOStatement $stmt) {
+			$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			$entries = [];
+			foreach($rows as $row) {
+				if(!array_key_exists('entry', $row)) {
+					continue;
+				}
+				$entry = $row['entry'];
+				if(is_string($entry)) {
+					$entries[] = $entry;
+				}
+			}
+			return $entries;
+		});
 	}
 
 	/**

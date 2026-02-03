@@ -7,15 +7,14 @@ use Kir\DB\Migrations\Helpers\TableObj;
 interface DBAdapter {
 	/**
 	 * @param string $entry
-	 * @return bool
-	 */
-	public function hasEntry(string $entry): bool;
-
-	/**
-	 * @param string $entry
 	 * @return $this
 	 */
 	public function addEntry(string $entry): self;
+
+	/**
+	 * @return array<string>
+	 */
+	public function listEntries(): array;
 
 	/**
 	 * @return string|null

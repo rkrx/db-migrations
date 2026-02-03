@@ -12,7 +12,7 @@ class MigrationManagerTest extends TestCase {
 		$adapter = new PdoDBAdapter($pdo, 'test_migrations');
 		$mm = new MigrationManager($adapter, __DIR__.'/test-migrations', new NullLogger);
 		$mm->migrate();
-		$this->assertEquals(true, $adapter->hasEntry('2015-01-01-12-00-00'));
+		$this->assertContains('2015-01-01-12-00-00', $adapter->listEntries());
 	}
 	
 	public function testHasEntryWithFix(): void {
@@ -37,10 +37,11 @@ class MigrationManagerTest extends TestCase {
 		$mm = new MigrationManager($adapter, __DIR__.'/test-migrations', new NullLogger);
 		$mm->migrate();
 		
-		self::assertTrue($adapter->hasEntry('2015-01-01-09-00-00'));
-		self::assertTrue($adapter->hasEntry('2015-01-01-10-00-00'));
-		self::assertTrue($adapter->hasEntry('2015-01-01-11-00-00'));
-		self::assertTrue($adapter->hasEntry('2015-01-01-12-00-00'));
+		$entries = $adapter->listEntries();
+		self::assertContains('2015-01-01-09-00-00', $entries);
+		self::assertContains('2015-01-01-10-00-00', $entries);
+		self::assertContains('2015-01-01-11-00-00', $entries);
+		self::assertContains('2015-01-01-12-00-00', $entries);
 		
 		$this->assertEquals(0, $adapter->query('SELECT COUNT(*) FROM test')->getValue());
 	}

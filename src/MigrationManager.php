@@ -3,6 +3,7 @@ namespace Kir\DB\Migrations;
 
 use Closure;
 use Exception;
+use Kir\DB\Migrations\Helpers\EntryName;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
@@ -37,13 +38,16 @@ class MigrationManager {
 		$paths = array_filter($paths, static fn(string $path) => is_file($path));
 		$paths = array_map(static fn($path) => realpath($path) ?: $path, $paths);
 		sort($paths);
+		$entries = $this->db->listEntries();
+		$entries = array_fill_keys($entries, true);
 
 		foreach($paths as $path) {
 			$entry = $this->getEntry($path);
-			if(!$this->db->hasEntry($entry)) {
+			if(!array_key_exists($entry, $entries)) {
 				$this->logger->info(sprintf("Try to run upgrade file %s", basename($path)));
 				$this->up($path);
 				$this->db->addEntry($entry);
+				$entries[$entry] = true;
 				$this->logger->info("Done.");
 			}
 		}
@@ -137,6 +141,6 @@ class MigrationManager {
 	 * @return string
 	 */
 	private function getEntry(string $path): string {
-		return basename($path);
+		return EntryName::shorten(basename($path));
 	}
 }
