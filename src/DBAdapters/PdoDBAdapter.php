@@ -2,9 +2,6 @@
 namespace Kir\DB\Migrations\DBAdapters;
 
 use JetBrains\PhpStorm\Language;
-use Kir\DB\Migrations\Commands\EnsureColumn;
-use Kir\DB\Migrations\Common\Command;
-use Kir\DB\Migrations\Common\Expr;
 use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\ExecResult;
 use Kir\DB\Migrations\Helpers\EntryName;
@@ -168,7 +165,7 @@ class PdoDBAdapter implements DBAdapter {
 			}
 		}
 	}
-	
+
 	/**
 	 * @template T
 	 * @param string $query

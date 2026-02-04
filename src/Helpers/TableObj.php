@@ -19,7 +19,6 @@ class TableObj {
 					FROM information_schema.columns
 				   WHERE TABLE_SCHEMA=:d
 				     AND TABLE_NAME=:t
-				ORDER BY ORDINAL_POSITION
 			', ['d' => $this->database, 't' => $this->tableName]
 		)->getValue();
 	}

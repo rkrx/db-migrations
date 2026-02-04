@@ -3,7 +3,14 @@ namespace Kir\DB\Migrations;
 
 use Closure;
 use Exception;
+use Kir\DB\Migrations\Contracts\MigrationStep;
 use Kir\DB\Migrations\Helpers\EntryName;
+use Kir\DB\Migrations\Schema\EngineInfo;
+use Kir\DB\Migrations\Schema\FeatureGate;
+use Kir\DB\Migrations\Schema\FeatureMatrix;
+use Kir\DB\Migrations\Schema\MigrationContext;
+use Kir\DB\Migrations\Schema\SchemaInspectorFactory;
+use Kir\DB\Migrations\Schema\SqlRenderer;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
@@ -61,7 +68,8 @@ class MigrationManager {
 	 */
 	public function up(string $path): void {
 		$data = require $path;
-		$statements = $data['statements'];
+		$context = $this->buildContext();
+		$statements = $this->normalizeStatements($data['statements'], $context);
 
 		$rollback = [];
 		foreach($statements as $statement) {
@@ -92,7 +100,8 @@ class MigrationManager {
 	 */
 	public function down(string $path): void {
 		$data = require $path;
-		$statements = array_reverse($data['statements']);
+		$context = $this->buildContext();
+		$statements = array_reverse($this->normalizeStatements($data['statements'], $context));
 
 		$rollback = [];
 		foreach($statements as $statement) {
@@ -134,6 +143,60 @@ class MigrationManager {
 			return;
 		}
 		throw new RuntimeException("Invalid statement. Require a Closure to run.");
+	}
+
+	/**
+	 * @param array<int, mixed> $statements
+	 * @return array<int, mixed>
+	 */
+	private function normalizeStatements(array $statements, MigrationContext $context): array {
+		$normalized = [];
+		foreach($statements as $statement) {
+			if($statement instanceof MigrationStep) {
+				$expanded = $statement->statements($context);
+				$normalized = array_merge($normalized, $this->normalizeStatements($expanded, $context));
+				continue;
+			}
+			if(is_array($statement) && $this->isList($statement) && !$this->isStatementArray($statement)) {
+				$normalized = array_merge($normalized, $this->normalizeStatements($statement, $context));
+				continue;
+			}
+			$normalized[] = $statement;
+		}
+		return $normalized;
+	}
+
+	/**
+	 * @param array<mixed> $statement
+	 */
+	private function isStatementArray(array $statement): bool {
+		return array_key_exists('up', $statement) || array_key_exists('down', $statement);
+	}
+
+	private function isList(array $array): bool {
+		$expected = 0;
+		foreach($array as $key => $value) {
+			if($key !== $expected) {
+				return false;
+			}
+			$expected++;
+		}
+		return true;
+	}
+
+	private function buildContext(): MigrationContext {
+		$engine = EngineInfo::detect($this->db);
+		$features = new FeatureGate($engine, new FeatureMatrix());
+		$inspector = SchemaInspectorFactory::create($this->db, $engine);
+		$sql = new SqlRenderer($engine);
+		return new MigrationContext(
+			db: $this->db,
+			logger: $this->logger,
+			engine: $engine,
+			features: $features,
+			inspector: $inspector,
+			sql: $sql
+		);
 	}
 
 	/**

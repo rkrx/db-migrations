@@ -88,6 +88,42 @@ return [
 ];
 ```
 
+## Fluent migration steps
+
+Statements can also include fluent builders. These builders derive DOWN steps from the existing schema at runtime and apply strict feature gating per engine/version. If a feature is not supported, the UP step is skipped and a warning is logged.
+
+```php
+<?php
+
+use Kir\DB\Migrations\Commands\Add;
+use Kir\DB\Migrations\Commands\Change;
+use Kir\DB\Migrations\Commands\Drop;
+
+return [
+    'statements' => [
+        Add::table('test')
+            ->intColumn(name: 'a', isUnsigned: true, nullable: false, comment: 'Primary id')
+            ->varcharColumn(name: 'b', length: 255, comment: 'Label')
+            ->primaryKey('a')
+            ->autoIncrement('a')
+            ->engine('InnoDB'),
+
+        Add::toTable('test')
+            ->intColumn(name: 'c', after: 'b', nullable: true, comment: 'Extra column'),
+
+        Drop::fromTable('test')
+            ->column('c'),
+
+        Change::table('test')
+            ->column(name: 'b', comment: 'New comment'),
+    ]
+];
+```
+
+Supported engines
+- MariaDB 10.6 (strict feature detection).
+- SQLite for a limited set of operations; unsupported features skip UP.
+
 ## Rules
 
 - Regularily include the `IF NOT EXISTS` clause in `CREATE TABLE` statements: `CREATE TABLE IF NOT EXISTS ...`.
