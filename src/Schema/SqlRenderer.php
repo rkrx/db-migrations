@@ -3,7 +3,7 @@ namespace Kir\DB\Migrations\Schema;
 
 use Kir\DB\Migrations\Common\Expr;
 
-final class SqlRenderer {
+final class SqlRenderer implements SqlRendererInterface {
 	public function __construct(private EngineInfo $engine) {}
 
 	public function quoteIdentifier(string $name): string {
@@ -70,6 +70,14 @@ final class SqlRenderer {
 		?string $collation = null
 	): string {
 		$isSqlite = $this->engine->engine === 'sqlite';
+		if($this->engine->engine === 'mysql' || $this->engine->engine === 'mariadb') {
+			if($engine === null) {
+				$engine = 'InnoDB';
+			}
+			if($charset === null) {
+				$charset = 'utf8mb4';
+			}
+		}
 		$lines = [];
 		foreach($columns as $column) {
 			$lines[] = $this->renderColumnDefinition($column);

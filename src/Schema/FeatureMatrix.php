@@ -10,6 +10,22 @@ final class FeatureMatrix {
 			return true;
 		}
 
+		if($engine->engine === 'mysql') {
+			return true;
+		}
+
+		if($engine->engine === 'postgres') {
+			return true;
+		}
+
+		if($engine->engine === 'sqlserver') {
+			return true;
+		}
+
+		if($engine->engine === 'oracle') {
+			return true;
+		}
+
 		if($engine->engine === 'sqlite') {
 			return $this->supportsSqlite($engine->version, $feature);
 		}

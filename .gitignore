@@ -1,4 +1,5 @@
 /*
+!/.github
 !/src
 !/tests
 !/.editorconfig
@@ -10,4 +11,5 @@
 !/LICENSE
 !/phpstan.neon
 !/README.md
-!/tests.xml
+!/phpunit.xml
+!/.env.local.example

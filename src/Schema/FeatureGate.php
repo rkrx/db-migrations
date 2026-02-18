@@ -26,7 +26,8 @@ final class FeatureGate {
 	}
 
 	public function describeEngine(): string {
-		$version = $this->engine->version?->raw ?? $this->engine->rawVersion ?? 'unknown';
+		$version = $this->engine->version !== null ? $this->engine->version->raw : $this->engine->rawVersion;
+		$version = $version ?? 'unknown';
 		return sprintf('%s %s', $this->engine->engine, $version);
 	}
 }

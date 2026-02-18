@@ -16,6 +16,7 @@ Basic usage
 <?php
 
 use Kir\DB\Migrations\DBAdapter;
+use Kir\DB\Migrations\DBAdapters\PdoDBAdapter;
 
 return [
     'statements' => [[
@@ -26,6 +27,74 @@ return [
     ]],
 ];
 ```
+
+MigrationManager with PdoDBAdapter
+----------------------------------
+```php
+<?php
+
+use Kir\DB\Migrations\DBAdapters\PdoDBAdapter;
+use Kir\DB\Migrations\MigrationManager;
+use PDO;
+use Psr\Log\NullLogger;
+
+$pdoInstance = new PDO('mysql:host=localhost;dbname=app', 'user', 'pass');
+$dbAdapter = new PdoDBAdapter($pdoInstance, 'migrations', new NullLogger());
+$manager = new MigrationManager($dbAdapter, __DIR__ . '/migrations', new NullLogger());
+$manager->migrate();
+```
+
+Adapters
+--------
+- `PdoDBAdapter` uses the built-in SQL renderer/inspector (MySQL/MariaDB/SQLite).
+- `DoctrineDbalAdapter` uses Doctrine DBAL as platform + schema layer (MySQL/MariaDB/PostgreSQL/SQLite/MSSQL/Oracle via DBAL).
+
+Example with Doctrine DBAL:
+```php
+<?php
+
+use Doctrine\DBAL\DriverManager;
+use Kir\DB\Migrations\DBAdapters\DoctrineDbalAdapter;
+use Kir\DB\Migrations\MigrationManager;
+use Psr\Log\NullLogger;
+
+$connection = DriverManager::getConnection([
+    'url' => 'pgsql://user:pass@localhost:5432/dbname',
+]);
+$adapter = new DoctrineDbalAdapter($connection);
+$manager = new MigrationManager($adapter, __DIR__ . '/migrations', new NullLogger());
+$manager->migrate();
+```
+
+Supported Databases and Adapter Trade-offs
+------------------------------------------
+Supported with `PdoDBAdapter`:
+- MySQL (8+)
+- MariaDB (10.6+)
+- SQLite (limited set of operations)
+
+Supported with `DoctrineDbalAdapter` (via DBAL platforms):
+- MySQL (8+)
+- MariaDB (10.6+)
+- PostgreSQL (12+)
+- SQLite
+- MSSQL
+- Oracle
+
+Why choose which adapter:
+- `PdoDBAdapter`: Simple, direct SQL path, no DBAL dependency, fast for MySQL/MariaDB/SQLite.
+- `DoctrineDbalAdapter`: Uses DBAL schema/platform abstractions, better cross-DBMS portability and DDL generation.
+
+DBAL Test Environment
+---------------------
+Integration tests for the DBAL adapter read the following environment variables:
+- `TEST_DB_MYSQL_DSN`
+- `TEST_DB_MARIADB_DSN`
+- `TEST_DB_PG_DSN`
+
+Use `.env.local.example` as a starting point for local development and provide the same variables in CI.
+`.env.local` is optional for local runs; without it, DBAL integration tests will be skipped.
+GitHub Actions runs the DBAL suite against real databases for SQLite, MySQL, MariaDB, and PostgreSQL.
 
 Fluent usage
 ------------
@@ -141,3 +210,4 @@ Engine support
 - MariaDB 10.6 is supported by default with strict feature detection.
 - SQLite is supported for a limited set of operations; unsupported features skip UP.
 - Unsupported features never throw; they log a warning and skip UP.
+- Doctrine DBAL adapter adds support for PostgreSQL, MSSQL, and Oracle via DBAL platforms.

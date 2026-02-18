@@ -25,7 +25,7 @@ final class MySqlSchemaInspector implements SchemaInspector {
 		}
 		$row = $rows[0];
 		foreach($row as $key => $value) {
-			if(is_string($key) && stripos($key, 'create table') !== false && is_string($value)) {
+			if(stripos($key, 'create table') !== false && is_string($value)) {
 				return $value;
 			}
 		}
@@ -170,7 +170,13 @@ final class MySqlSchemaInspector implements SchemaInspector {
 			return null;
 		}
 		if(!is_string($value)) {
-			return $value;
+			if(is_int($value) || is_float($value) || is_bool($value)) {
+				return $value;
+			}
+			if(is_object($value) && method_exists($value, '__toString')) {
+				return (string) $value;
+			}
+			return null;
 		}
 		$trimmed = trim($value);
 		if(preg_match("/^'.*'$/", $trimmed)) {

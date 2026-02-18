@@ -3,6 +3,7 @@ namespace Kir\DB\Migrations;
 
 use Closure;
 use Exception;
+use Kir\DB\Migrations\Contracts\ContextProvider;
 use Kir\DB\Migrations\Contracts\MigrationStep;
 use Kir\DB\Migrations\Helpers\EntryName;
 use Kir\DB\Migrations\Schema\EngineInfo;
@@ -68,12 +69,21 @@ class MigrationManager {
 	 */
 	public function up(string $path): void {
 		$data = require $path;
+		if(!is_array($data) || !array_key_exists('statements', $data) || !is_array($data['statements'])) {
+			throw new RuntimeException("Invalid migration file: {$path}");
+		}
+		/** @var array<array-key, mixed> $statementData */
+		$statementData = $data['statements'];
 		$context = $this->buildContext();
-		$statements = $this->normalizeStatements($data['statements'], $context);
+		$statements = $this->normalizeStatements($statementData, $context);
 
 		$rollback = [];
 		foreach($statements as $statement) {
 			try {
+				if(!is_array($statement)) {
+					$this->runQuery($statement);
+					continue;
+				}
 				if(array_key_exists('down', $statement)) {
 					$rollback[] = $statement['down'];
 				}
@@ -100,12 +110,21 @@ class MigrationManager {
 	 */
 	public function down(string $path): void {
 		$data = require $path;
+		if(!is_array($data) || !array_key_exists('statements', $data) || !is_array($data['statements'])) {
+			throw new RuntimeException("Invalid migration file: {$path}");
+		}
+		/** @var array<array-key, mixed> $statementData */
+		$statementData = $data['statements'];
 		$context = $this->buildContext();
-		$statements = array_reverse($this->normalizeStatements($data['statements'], $context));
+		$statements = array_reverse($this->normalizeStatements($statementData, $context));
 
 		$rollback = [];
 		foreach($statements as $statement) {
 			try {
+				if(!is_array($statement)) {
+					$this->runQuery($statement);
+					continue;
+				}
 				if(array_key_exists('down', $statement)) {
 					$this->runQuery($statement['down']);
 				}
@@ -123,11 +142,11 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param Closure|string|array<string, string>|null $statement
+	 * @param mixed $statement
 	 * @return void
 	 * @throws Exception
 	 */
-	private function runQuery(Closure|string|array|null $statement): void {
+	private function runQuery(mixed $statement): void {
 		if(is_string($statement)) {
 			$this->db->exec($statement);
 			return;
@@ -146,7 +165,7 @@ class MigrationManager {
 	}
 
 	/**
-	 * @param array<int, mixed> $statements
+	 * @param array<array-key, mixed> $statements
 	 * @return array<int, mixed>
 	 */
 	private function normalizeStatements(array $statements, MigrationContext $context): array {
@@ -173,6 +192,9 @@ class MigrationManager {
 		return array_key_exists('up', $statement) || array_key_exists('down', $statement);
 	}
 
+	/**
+	 * @param array<array-key, mixed> $array
+	 */
 	private function isList(array $array): bool {
 		$expected = 0;
 		foreach($array as $key => $value) {
@@ -185,6 +207,9 @@ class MigrationManager {
 	}
 
 	private function buildContext(): MigrationContext {
+		if($this->db instanceof ContextProvider) {
+			return $this->db->buildContext($this->logger);
+		}
 		$engine = EngineInfo::detect($this->db);
 		$features = new FeatureGate($engine, new FeatureMatrix());
 		$inspector = SchemaInspectorFactory::create($this->db, $engine);
