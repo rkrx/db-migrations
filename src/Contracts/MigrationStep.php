@@ -6,7 +6,7 @@ use Kir\DB\Migrations\Schema\MigrationContext;
 
 interface MigrationStep {
 	/**
-	 * @return array<array{up?: Closure|string|array, down?: Closure|string|array}>
+	 * @return array<array{up?: Closure|string|array<int, string>, down?: Closure|string|array<int, string>}>
 	 */
 	public function statements(MigrationContext $context): array;
 }

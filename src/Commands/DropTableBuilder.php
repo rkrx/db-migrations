@@ -2,6 +2,7 @@
 namespace Kir\DB\Migrations\Commands;
 
 use Kir\DB\Migrations\Contracts\MigrationStep;
+use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\Schema\Feature;
 use Kir\DB\Migrations\Schema\MigrationContext;
 
@@ -20,25 +21,28 @@ final class DropTableBuilder implements MigrationStep {
 		$createSql = null;
 		$dropped = false;
 
-		$up = function ($db) use ($inspector, $tableName, $dropSql, &$createSql, &$dropped): void {
+		$up = function (DBAdapter $db) use ($inspector, $tableName, $dropSql, &$createSql, &$dropped, $context): void {
 			$createSql = $inspector->getCreateTableSql($tableName);
 			if($createSql === null) {
 				$dropped = false;
 				return;
 			}
-			$db->exec($dropSql);
+			$context->execSql($db, $dropSql);
 			$dropped = true;
 		};
-		$down = function ($db) use (&$createSql, &$dropped): void {
+		$down = function (DBAdapter $db) use (&$createSql, &$dropped, $context): void {
 			if(!$dropped || $createSql === null) {
 				return;
 			}
-			$db->exec($createSql);
+			$context->execSql($db, $createSql);
 		};
 
 		return [['up' => $up, 'down' => $down]];
 	}
 
+	/**
+	 * @param string[] $unsupported
+	 */
 	private function skipMessage(MigrationContext $context, string $action, array $unsupported): string {
 		return sprintf(
 			'Skip UP %s on %s: unsupported features for %s (%s).',

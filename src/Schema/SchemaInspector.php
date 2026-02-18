@@ -3,7 +3,10 @@ namespace Kir\DB\Migrations\Schema;
 
 interface SchemaInspector {
 	public function tableExists(string $tableName): bool;
-	public function getCreateTableSql(string $tableName): ?string;
+	/**
+	 * @return string|array<int, string>|null
+	 */
+	public function getCreateTableSql(string $tableName): string|array|null;
 
 	/**
 	 * @return ColumnDefinition[]

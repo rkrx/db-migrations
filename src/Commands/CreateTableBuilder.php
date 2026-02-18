@@ -2,10 +2,12 @@
 namespace Kir\DB\Migrations\Commands;
 
 use Kir\DB\Migrations\Contracts\MigrationStep;
+use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\Schema\ColumnDefinition;
 use Kir\DB\Migrations\Schema\Feature;
 use Kir\DB\Migrations\Schema\IndexDefinition;
 use Kir\DB\Migrations\Schema\ForeignKeyDefinition;
+use Kir\DB\Migrations\Schema\DbalSqlRenderer;
 use Kir\DB\Migrations\Schema\MigrationContext;
 
 final class CreateTableBuilder implements MigrationStep {
@@ -122,7 +124,7 @@ final class CreateTableBuilder implements MigrationStep {
 		if($unsupported !== []) {
 			return [$context->skipStatement($this->skipMessage($context, 'create table', $unsupported))];
 		}
-		if($context->engine->engine === 'sqlite' && $this->indexes !== []) {
+		if($context->engine->engine === 'sqlite' && $this->indexes !== [] && !($context->sql instanceof DbalSqlRenderer)) {
 			return [$context->skipStatement(
 				sprintf(
 					'Skip UP create table on %s: non-unique indexes are not supported in CREATE TABLE for %s. Use Add::toTable()->index instead.',
@@ -148,19 +150,19 @@ final class CreateTableBuilder implements MigrationStep {
 		$inspector = $context->inspector;
 		$dropSql = $context->sql->renderDropTable($this->tableName);
 
-		$up = function ($db) use ($inspector, $tableName, $sql, &$exists): void {
+		$up = function (DBAdapter $db) use ($inspector, $tableName, $sql, &$exists, $context): void {
 			if($inspector->tableExists($tableName)) {
 				$exists = true;
 				return;
 			}
 			$exists = false;
-			$db->exec($sql);
+			$context->execSql($db, $sql);
 		};
-		$down = function ($db) use (&$exists, $dropSql): void {
+		$down = function (DBAdapter $db) use (&$exists, $dropSql, $context): void {
 			if($exists) {
 				return;
 			}
-			$db->exec($dropSql);
+			$context->execSql($db, $dropSql);
 		};
 
 		return [['up' => $up, 'down' => $down]];
@@ -192,6 +194,9 @@ final class CreateTableBuilder implements MigrationStep {
 		return $features;
 	}
 
+	/**
+	 * @param string[] $unsupported
+	 */
 	private function skipMessage(MigrationContext $context, string $action, array $unsupported): string {
 		return sprintf(
 			'Skip UP %s on %s: unsupported features for %s (%s).',

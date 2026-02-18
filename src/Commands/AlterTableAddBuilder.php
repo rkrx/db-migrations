@@ -2,16 +2,25 @@
 namespace Kir\DB\Migrations\Commands;
 
 use Kir\DB\Migrations\Contracts\MigrationStep;
+use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\Schema\ColumnDefinition;
 use Kir\DB\Migrations\Schema\Feature;
 use Kir\DB\Migrations\Schema\ForeignKeyDefinition;
 use Kir\DB\Migrations\Schema\IndexDefinition;
 use Kir\DB\Migrations\Schema\MigrationContext;
 
+/**
+ * @phpstan-type TAddColumn array{type: 'addColumn', payload: ColumnDefinition}
+ * @phpstan-type TAddIndex array{type: 'addIndex'|'addUniqueIndex', payload: IndexDefinition}
+ * @phpstan-type TAddPrimaryKey array{type: 'addPrimaryKey', payload: string[]}
+ * @phpstan-type TAddForeignKey array{type: 'addForeignKey', payload: ForeignKeyDefinition}
+ */
 final class AlterTableAddBuilder implements MigrationStep {
 	use ColumnBuilderTrait;
 
-	/** @var array<int, array{type: string, payload: mixed}> */
+	/**
+	 * @var array<int, TAddColumn|TAddIndex|TAddPrimaryKey|TAddForeignKey>
+	 */
 	private array $operations = [];
 
 	public function __construct(private string $tableName) {}
@@ -61,19 +70,41 @@ final class AlterTableAddBuilder implements MigrationStep {
 		return $this;
 	}
 
+	/**
+	 * @return array<array{up?: \Closure|string|array<int, string>, down?: \Closure|string|array<int, string>}>
+	 */
 	public function statements(MigrationContext $context): array {
 		$statements = [];
 		foreach($this->operations as $operation) {
 			$type = $operation['type'];
 			$payload = $operation['payload'];
-			$statement = match($type) {
-				'addColumn' => $this->buildAddColumn($context, $payload),
-				'addIndex' => $this->buildAddIndex($context, $payload),
-				'addUniqueIndex' => $this->buildAddIndex($context, $payload),
-				'addPrimaryKey' => $this->buildAddPrimaryKey($context, $payload),
-				'addForeignKey' => $this->buildAddForeignKey($context, $payload),
-				default => null,
-			};
+			$statement = null;
+			switch($type) {
+				case 'addColumn':
+					if($payload instanceof ColumnDefinition) {
+						$statement = $this->buildAddColumn($context, $payload);
+					}
+					break;
+				case 'addIndex':
+				case 'addUniqueIndex':
+					if($payload instanceof IndexDefinition) {
+						$statement = $this->buildAddIndex($context, $payload);
+					}
+					break;
+				case 'addPrimaryKey':
+					if(is_array($payload)) {
+						/** @var string[] $payload */
+						$statement = $this->buildAddPrimaryKey($context, $payload);
+					}
+					break;
+				case 'addForeignKey':
+					if($payload instanceof ForeignKeyDefinition) {
+						$statement = $this->buildAddForeignKey($context, $payload);
+					}
+					break;
+				default:
+					break;
+			}
 			if($statement !== null) {
 				$statements[] = $statement;
 			}
@@ -81,6 +112,9 @@ final class AlterTableAddBuilder implements MigrationStep {
 		return $statements;
 	}
 
+	/**
+	 * @return array{up: \Closure, down: \Closure}|array{up: \Closure}
+	 */
 	private function buildAddColumn(MigrationContext $context, ColumnDefinition $column): array {
 		$required = array_merge(
 			[Feature::ALTER_ADD_COLUMN, Feature::ALTER_DROP_COLUMN],
@@ -95,23 +129,26 @@ final class AlterTableAddBuilder implements MigrationStep {
 		$inspector = $context->inspector;
 		$sql = $context->sql;
 		$added = false;
-		$up = function ($db) use ($inspector, $sql, $tableName, $column, &$added): void {
+		$up = function (DBAdapter $db) use ($inspector, $sql, $tableName, $column, &$added, $context): void {
 			if($inspector->getColumn($tableName, $column->name) !== null) {
 				$added = false;
 				return;
 			}
-			$db->exec($sql->renderAddColumn($tableName, $column));
+			$context->execSql($db, $sql->renderAddColumn($tableName, $column));
 			$added = true;
 		};
-		$down = function ($db) use ($sql, $tableName, $column, &$added): void {
+		$down = function (DBAdapter $db) use ($sql, $tableName, $column, &$added, $context): void {
 			if(!$added) {
 				return;
 			}
-			$db->exec($sql->renderDropColumn($tableName, $column->name));
+			$context->execSql($db, $sql->renderDropColumn($tableName, $column->name));
 		};
 		return ['up' => $up, 'down' => $down];
 	}
 
+	/**
+	 * @return array{up: \Closure, down: \Closure}|array{up: \Closure}
+	 */
 	private function buildAddIndex(MigrationContext $context, IndexDefinition $index): array {
 		$required = [Feature::ALTER_ADD_INDEX, Feature::ALTER_DROP_INDEX];
 		$unsupported = $context->features->unsupported($required);
@@ -122,23 +159,27 @@ final class AlterTableAddBuilder implements MigrationStep {
 		$inspector = $context->inspector;
 		$sql = $context->sql;
 		$created = false;
-		$up = function ($db) use ($inspector, $sql, $tableName, $index, &$created): void {
+		$up = function (DBAdapter $db) use ($inspector, $sql, $tableName, $index, &$created, $context): void {
 			if($inspector->getIndex($tableName, $index->name) !== null) {
 				$created = false;
 				return;
 			}
-			$db->exec($sql->renderAddIndex($tableName, $index));
+			$context->execSql($db, $sql->renderAddIndex($tableName, $index));
 			$created = true;
 		};
-		$down = function ($db) use ($sql, $tableName, $index, &$created): void {
+		$down = function (DBAdapter $db) use ($sql, $tableName, $index, &$created, $context): void {
 			if(!$created) {
 				return;
 			}
-			$db->exec($sql->renderDropIndex($tableName, $index->name));
+			$context->execSql($db, $sql->renderDropIndex($tableName, $index->name));
 		};
 		return ['up' => $up, 'down' => $down];
 	}
 
+	/**
+	 * @param string[] $columns
+	 * @return array{up: \Closure, down: \Closure}|array{up: \Closure}
+	 */
 	private function buildAddPrimaryKey(MigrationContext $context, array $columns): array {
 		$required = [Feature::ALTER_ADD_PRIMARY_KEY, Feature::ALTER_DROP_PRIMARY_KEY];
 		$unsupported = $context->features->unsupported($required);
@@ -149,23 +190,26 @@ final class AlterTableAddBuilder implements MigrationStep {
 		$inspector = $context->inspector;
 		$sql = $context->sql;
 		$created = false;
-		$up = function ($db) use ($inspector, $sql, $tableName, $columns, &$created): void {
+		$up = function (DBAdapter $db) use ($inspector, $sql, $tableName, $columns, &$created, $context): void {
 			if($inspector->getIndex($tableName, 'PRIMARY') !== null) {
 				$created = false;
 				return;
 			}
-			$db->exec($sql->renderAddPrimaryKey($tableName, $columns));
+			$context->execSql($db, $sql->renderAddPrimaryKey($tableName, $columns));
 			$created = true;
 		};
-		$down = function ($db) use ($sql, $tableName, &$created): void {
+		$down = function (DBAdapter $db) use ($sql, $tableName, &$created, $context): void {
 			if(!$created) {
 				return;
 			}
-			$db->exec($sql->renderDropPrimaryKey($tableName));
+			$context->execSql($db, $sql->renderDropPrimaryKey($tableName));
 		};
 		return ['up' => $up, 'down' => $down];
 	}
 
+	/**
+	 * @return array{up: \Closure, down: \Closure}|array{up: \Closure}
+	 */
 	private function buildAddForeignKey(MigrationContext $context, ForeignKeyDefinition $fk): array {
 		$required = [Feature::ALTER_ADD_FOREIGN_KEY, Feature::ALTER_DROP_FOREIGN_KEY];
 		$unsupported = $context->features->unsupported($required);
@@ -176,7 +220,7 @@ final class AlterTableAddBuilder implements MigrationStep {
 		$inspector = $context->inspector;
 		$sql = $context->sql;
 		$created = false;
-		$up = function ($db) use ($inspector, $sql, $tableName, $fk, &$created, $context): void {
+		$up = function (DBAdapter $db) use ($inspector, $sql, $tableName, $fk, &$created, $context): void {
 			if($inspector->getForeignKey($tableName, $fk->name) !== null) {
 				$created = false;
 				return;
@@ -194,14 +238,14 @@ final class AlterTableAddBuilder implements MigrationStep {
 					return;
 				}
 			}
-			$db->exec($sql->renderAddForeignKey($tableName, $fk));
+			$context->execSql($db, $sql->renderAddForeignKey($tableName, $fk));
 			$created = true;
 		};
-		$down = function ($db) use ($sql, $tableName, $fk, &$created): void {
+		$down = function (DBAdapter $db) use ($sql, $tableName, $fk, &$created, $context): void {
 			if(!$created) {
 				return;
 			}
-			$db->exec($sql->renderDropForeignKey($tableName, $fk->name));
+			$context->execSql($db, $sql->renderDropForeignKey($tableName, $fk->name));
 		};
 		return ['up' => $up, 'down' => $down];
 	}
@@ -249,6 +293,9 @@ final class AlterTableAddBuilder implements MigrationStep {
 		return $features;
 	}
 
+	/**
+	 * @param string[] $unsupported
+	 */
 	private function skipMessage(MigrationContext $context, string $action, array $unsupported): string {
 		return sprintf(
 			'Skip UP %s on %s: unsupported features for %s (%s).',

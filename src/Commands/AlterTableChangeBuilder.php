@@ -3,6 +3,7 @@ namespace Kir\DB\Migrations\Commands;
 
 use Kir\DB\Migrations\Common\Expr;
 use Kir\DB\Migrations\Contracts\MigrationStep;
+use Kir\DB\Migrations\DBAdapter;
 use Kir\DB\Migrations\Schema\ColumnChange;
 use Kir\DB\Migrations\Schema\ColumnDefinition;
 use Kir\DB\Migrations\Schema\Feature;
@@ -40,7 +41,7 @@ final class AlterTableChangeBuilder implements MigrationStep {
 			charsetSet: $charset !== ColumnChange::UNSET,
 			collation: $collation === ColumnChange::UNSET ? null : (is_string($collation) ? $collation : null),
 			collationSet: $collation !== ColumnChange::UNSET,
-			defaultValue: $default === ColumnChange::UNSET ? null : $default,
+			defaultValue: $default === ColumnChange::UNSET ? null : $this->normalizeDefaultValue($default),
 			defaultSet: $default !== ColumnChange::UNSET,
 			onUpdate: $this->normalizeOnUpdate($onUpdate),
 			onUpdateSet: $onUpdate !== ColumnChange::UNSET,
@@ -51,6 +52,9 @@ final class AlterTableChangeBuilder implements MigrationStep {
 		return $this;
 	}
 
+	/**
+	 * @return array<int, array{up: \Closure, down: \Closure}>
+	 */
 	public function statements(MigrationContext $context): array {
 		$statements = [];
 		foreach($this->changes as $change) {
@@ -59,6 +63,9 @@ final class AlterTableChangeBuilder implements MigrationStep {
 		return $statements;
 	}
 
+	/**
+	 * @return array{up: \Closure, down: \Closure}
+	 */
 	private function buildChangeColumn(MigrationContext $context, ColumnChange $change): array {
 		$required = [Feature::ALTER_MODIFY_COLUMN];
 		$unsupported = $context->features->unsupported($required);
@@ -71,7 +78,7 @@ final class AlterTableChangeBuilder implements MigrationStep {
 		$oldColumn = null;
 		$newColumn = null;
 		$changed = false;
-		$up = function ($db) use ($inspector, $sql, $tableName, $change, &$oldColumn, &$newColumn, &$changed, $context): void {
+		$up = function (DBAdapter $db) use ($inspector, $sql, $tableName, $change, &$oldColumn, &$newColumn, &$changed, $context): void {
 			$oldColumn = $inspector->getColumn($tableName, $change->name);
 			if($oldColumn === null) {
 				$changed = false;
@@ -88,14 +95,14 @@ final class AlterTableChangeBuilder implements MigrationStep {
 				$changed = false;
 				return;
 			}
-			$db->exec($sql->renderModifyColumn($tableName, $newColumn));
+			$context->execSql($db, $sql->renderModifyColumn($tableName, $newColumn));
 			$changed = true;
 		};
-		$down = function ($db) use ($sql, $tableName, &$oldColumn, &$changed): void {
+		$down = function (DBAdapter $db) use ($sql, $tableName, &$oldColumn, &$changed, $context): void {
 			if(!$changed || $oldColumn === null) {
 				return;
 			}
-			$db->exec($sql->renderModifyColumn($tableName, $oldColumn));
+			$context->execSql($db, $sql->renderModifyColumn($tableName, $oldColumn));
 		};
 		return ['up' => $up, 'down' => $down];
 	}
@@ -148,7 +155,29 @@ final class AlterTableChangeBuilder implements MigrationStep {
 		if($value instanceof Expr) {
 			return $value;
 		}
-		return new Expr((string) $value);
+		if(is_bool($value) || is_int($value) || is_float($value) || is_string($value)) {
+			return new Expr((string) $value);
+		}
+		if(is_object($value) && method_exists($value, '__toString')) {
+			return new Expr((string) $value);
+		}
+		return null;
+	}
+
+	private function normalizeDefaultValue(mixed $value): bool|int|float|string|Expr|null {
+		if($value === null) {
+			return null;
+		}
+		if($value instanceof Expr) {
+			return $value;
+		}
+		if(is_bool($value) || is_int($value) || is_float($value) || is_string($value)) {
+			return $value;
+		}
+		if(is_object($value) && method_exists($value, '__toString')) {
+			return (string) $value;
+		}
+		return null;
 	}
 
 	/**
@@ -177,6 +206,9 @@ final class AlterTableChangeBuilder implements MigrationStep {
 		return $features;
 	}
 
+	/**
+	 * @param string[] $unsupported
+	 */
 	private function skipMessage(MigrationContext $context, string $action, array $unsupported): string {
 		return sprintf(
 			'Skip UP %s on %s: unsupported features for %s (%s).',

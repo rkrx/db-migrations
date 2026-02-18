@@ -11,8 +11,21 @@ final class MigrationContext {
 		public EngineInfo $engine,
 		public FeatureGate $features,
 		public SchemaInspector $inspector,
-		public SqlRenderer $sql
+		public SqlRendererInterface $sql
 	) {}
+
+	/**
+	 * @param string|array<int, string> $sql
+	 */
+	public function execSql(DBAdapter $db, string|array $sql): void {
+		if(is_array($sql)) {
+			foreach($sql as $statement) {
+				$db->exec($statement);
+			}
+			return;
+		}
+		$db->exec($sql);
+	}
 
 	/**
 	 * @return array{up: \Closure, down: \Closure}

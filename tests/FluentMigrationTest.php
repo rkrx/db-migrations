@@ -101,7 +101,7 @@ final class FluentMigrationTest extends TestCase {
 	}
 
 	/**
-	 * @param array<int, mixed> $statements
+	 * @param array<array-key, mixed> $statements
 	 * @param 'up'|'down' $direction
 	 */
 	private function runStatements(array $statements, DBAdapter $adapter, string $direction): void {
@@ -140,6 +140,10 @@ final class TestLogger extends AbstractLogger {
 	/** @var array<int, array{level: string, message: string}> */
 	public array $records = [];
 
+	/**
+	 * @param string $level
+	 * @param string|\Stringable $message
+	 */
 	public function log($level, $message, array $context = []): void {
 		$this->records[] = ['level' => (string) $level, 'message' => (string) $message];
 	}

@@ -8,6 +8,8 @@ use Kir\DB\Migrations\Helpers\EntryName;
 use Kir\DB\Migrations\Helpers\TableObj;
 use Kir\DB\Migrations\Helpers\Whitespace;
 use Kir\DB\Migrations\QueryResult;
+use Kir\DB\Migrations\Schema\EngineInfo;
+use Kir\DB\Migrations\Schema\SchemaInspectorFactory;
 use PDO;
 use PDOStatement;
 use Psr\Log\LoggerInterface;
@@ -62,6 +64,7 @@ class PdoDBAdapter implements DBAdapter {
 	public function listEntries(): array {
 		return $this->execStmt($this->statements['list'], [], function (PDOStatement $stmt) {
 			$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			/** @var array<int, array<string, mixed>> $rows */
 			$entries = [];
 			foreach($rows as $row) {
 				if(!array_key_exists('entry', $row)) {
@@ -89,15 +92,12 @@ class PdoDBAdapter implements DBAdapter {
 
 	/**
 	 * @param string $tableName
-	 * @param string|null $database
 	 * @return TableObj
 	 */
-	public function table(string $tableName, ?string $database = null): TableObj {
-		$database = $database ?? $this->getDatabase();
-		if($database === null) {
-			throw new RuntimeException("No database selected");
-		}
-		return new TableObj($this, $database, $tableName);
+	public function table(string $tableName): TableObj {
+		$engine = EngineInfo::detect($this);
+		$inspector = SchemaInspectorFactory::create($this, $engine);
+		return new TableObj($inspector, $tableName);
 	}
 
 	/**
@@ -120,9 +120,10 @@ class PdoDBAdapter implements DBAdapter {
 		}
 		$stmt->execute();
 		$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		/** @var array<int, array<string, mixed>> $data */
 		$stmt->closeCursor();
 
-		return new QueryResult($data);
+		return new QueryResult($this->normalizeRows($data));
 	}
 
 	/**
@@ -160,9 +161,7 @@ class PdoDBAdapter implements DBAdapter {
 
 			return $result;
 		} finally {
-			if($stmt instanceof PDOStatement) {
-				$stmt->closeCursor();
-			}
+			$stmt->closeCursor();
 		}
 	}
 
@@ -190,9 +189,7 @@ class PdoDBAdapter implements DBAdapter {
 			$stmt->execute();
 			return $callback($stmt);
 		} finally {
-			if($stmt instanceof PDOStatement) {
-				$stmt->closeCursor();
-			}
+			$stmt->closeCursor();
 		}
 	}
 
@@ -225,8 +222,12 @@ class PdoDBAdapter implements DBAdapter {
 	 */
 	private function fixEntries(): void {
 		$entries = $this->execStmt($this->statements['fix'], [], fn (PDOStatement $stmt) => $stmt->fetchAll(PDO::FETCH_ASSOC));
+		/** @var array<int, array<string, mixed>> $entries */
 		foreach($entries as $entry) {
 			$oldEntry = $entry['entry'];
+			if(!is_string($oldEntry)) {
+				continue;
+			}
 			$newEntry = EntryName::shorten($oldEntry);
 
 			// Remove possibly existing $newEntry before renaming the wrong one...
@@ -235,5 +236,29 @@ class PdoDBAdapter implements DBAdapter {
 			// Rename the old name to the short-one
 			$this->execStmt($this->statements['fix_update'], ['old_entry' => $oldEntry, 'new_entry' => $newEntry], fn($x) => $x);
 		}
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $rows
+	 * @return array<int, array<string, bool|int|float|string|null>>
+	 */
+	private function normalizeRows(array $rows): array {
+		$normalized = [];
+		foreach($rows as $row) {
+			$clean = [];
+			foreach($row as $key => $value) {
+				if(is_bool($value) || is_int($value) || is_float($value) || is_string($value) || $value === null) {
+					$clean[$key] = $value;
+					continue;
+				}
+				if(is_object($value) && method_exists($value, '__toString')) {
+					$clean[$key] = (string) $value;
+					continue;
+				}
+				$clean[$key] = null;
+			}
+			$normalized[] = $clean;
+		}
+		return $normalized;
 	}
 }

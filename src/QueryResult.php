@@ -53,7 +53,7 @@ class QueryResult {
 	/**
 	 * @param null|string $fieldName
 	 * @param null|callable $mapFn
-	 * @return null|scalar
+	 * @return bool|int|float|string|null
 	 */
 	public function getValue(?string $fieldName = null, $mapFn = null) {
 		$row = $this->getRow();
@@ -71,6 +71,15 @@ class QueryResult {
 		if($mapFn !== null) {
 			$value = $mapFn($value);
 		}
-		return $value;
+		if($value === null) {
+			return null;
+		}
+		if(is_bool($value) || is_int($value) || is_float($value) || is_string($value)) {
+			return $value;
+		}
+		if(is_object($value) && method_exists($value, '__toString')) {
+			return (string) $value;
+		}
+		return null;
 	}
 }
