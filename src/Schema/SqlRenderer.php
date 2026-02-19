@@ -34,9 +34,15 @@ final class SqlRenderer implements SqlRendererInterface {
 		}
 		$parts = [
 			$this->quoteIdentifier($column->name),
-			$type,
-			$column->nullable ? 'NULL' : 'NOT NULL'
+			$type
 		];
+		if($column->charset !== null) {
+			$parts[] = 'CHARACTER SET ' . $column->charset;
+		}
+		if($column->collation !== null) {
+			$parts[] = 'COLLATE ' . $column->collation;
+		}
+		$parts[] = $column->nullable ? 'NULL' : 'NOT NULL';
 		if($column->defaultValue !== null) {
 			$parts[] = 'DEFAULT ' . $this->renderDefaultValue($column->defaultValue);
 		}
@@ -48,12 +54,6 @@ final class SqlRenderer implements SqlRendererInterface {
 		}
 		if($column->comment !== null) {
 			$parts[] = 'COMMENT ' . $this->quoteValue($column->comment);
-		}
-		if($column->charset !== null) {
-			$parts[] = 'CHARACTER SET ' . $column->charset;
-		}
-		if($column->collation !== null) {
-			$parts[] = 'COLLATE ' . $column->collation;
 		}
 		return implode(' ', $parts);
 	}
